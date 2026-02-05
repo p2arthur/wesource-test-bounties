@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: wesource_db
+    restart: always
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: wesource_db
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wesource_api
+    ports:
+      - '3000:3000'
+    environment:
+      DATABASE_URL: 'postgresql://user:password@db:5432/wesource_db?schema=public'
+    volumes:
+      - ./:/usr/src/app
+      - /usr/src/app/node_modules
+    depends_on:
+      - db
+
+# --- THIS IS THE PART YOU WERE MISSING ---
+volumes:
+  postgres_data:

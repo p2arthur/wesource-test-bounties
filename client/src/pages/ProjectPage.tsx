@@ -1,0 +1,353 @@
+import { useEffect, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import ConnectWalletModal from '../components/ConnectWalletModal'
+import CreateBountyModal from '../components/CreateBountyModal'
+import LoadingPair from '../components/LoadingPair'
+import VoteWidget from '../components/VoteWidget'
+import { useProjects } from '../contexts/ProjectContext'
+import { useUnifiedWallet } from '../hooks/useUnifiedWallet'
+import { Issue, Project } from '../interfaces/entities'
+import { createBounty } from '../services/api'
+
+export default function ProjectPage() {
+  const { projectId } = useParams<{ projectId: string }>()
+  const { getProjectById } = useProjects()
+  const [project, setProject] = useState<Project | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null)
+  const [selectedRepoOwner, setSelectedRepoOwner] = useState<string>('')
+  const [selectedRepoName, setSelectedRepoName] = useState<string>('')
+  const [isBountyModalOpen, setIsBountyModalOpen] = useState(false)
+  const [isConnectModalOpen, setIsConnectModalOpen] = useState(false)
+  const { isConnected } = useUnifiedWallet()
+
+  const parseGithubRepoInfo = (repoUrl: string) => {
+    try {
+      const url = new URL(repoUrl)
+      const [owner, rawName] = url.pathname.replace(/^\/+/, '').split('/')
+      const name = rawName?.replace(/\.git$/, '')
+      if (!owner || !name) {
+        return null
+      }
+      return { owner, name }
+    } catch {
+      return null
+    }
+  }
+
+  const openBountyModal = (issue: Issue, repoUrl: string) => {
+    if (!isConnected) {
+      setIsConnectModalOpen(true)
+      return
+    }
+    const repoInfo = parseGithubRepoInfo(repoUrl)
+    if (!repoInfo) {
+      console.error('Unable to parse GitHub repository info for bounty creation.')
+      return
+    }
+    setSelectedIssue(issue)
+    setSelectedRepoOwner(repoInfo.owner)
+    setSelectedRepoName(repoInfo.name)
+    setIsBountyModalOpen(true)
+  }
+
+  const closeBountyModal = () => {
+    setIsBountyModalOpen(false)
+    setSelectedIssue(null)
+    setSelectedRepoOwner('')
+    setSelectedRepoName('')
+  }
+
+  const handleCreateBounty = async (issueNumber: number, amount: number, creatorWallet: string) => {
+    if (!selectedRepoOwner || !selectedRepoName) {
+      throw new Error('Missing repository info for bounty creation.')
+    }
+
+    if (!Number.isInteger(issueNumber) || issueNumber <= 0) {
+      throw new Error('Issue number must be a positive integer.')
+    }
+    if (amount <= 0) {
+      throw new Error('Amount must be greater than 0.')
+    }
+    if (!creatorWallet.trim()) {
+      throw new Error('Creator wallet is required.')
+    }
+
+    const created = await createBounty({
+      repoOwner: selectedRepoOwner,
+      repoName: selectedRepoName,
+      issueNumber: Math.trunc(issueNumber),
+      amount,
+      creatorWallet: creatorWallet.trim(),
+    })
+
+    localStorage.setItem(`bountyKey:${created.id}`, created.bountyKey)
+  }
+
+  useEffect(() => {
+    async function loadProject() {
+      if (!projectId) return
+      setLoading(true)
+      setError(null)
+      try {
+        const data = await getProjectById(Number(projectId))
+        setProject(data)
+        if (!data) {
+          setError('Project not found')
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load project')
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadProject()
+  }, [projectId, getProjectById])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen p-4 md:p-8 lg:p-10">
+        <div className="max-w-4xl mx-auto">
+          <div className="card p-8 text-center">
+            <LoadingPair size="lg" label="Loading project..." />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !project) {
+    return (
+      <div className="min-h-screen p-4 md:p-8 lg:p-10">
+        <div className="max-w-4xl mx-auto">
+          <div className="card p-8 text-center space-y-4">
+            <h1 className="text-2xl font-bold text-black">Project Not Found</h1>
+            <p className="text-muted">{error || "The project you're looking for doesn't exist."}</p>
+            <Link to="/" className="btn-primary inline-block">
+              Back to Home
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Calculate totals
+  const totalStars = project.repositories.reduce((acc, repo) => acc + repo.stars, 0)
+  const allContributors = project.repositories.flatMap((repo) => repo.contributors || [])
+
+  return (
+    <div className="min-h-screen p-4 md:p-8 lg:p-10">
+      <div className="max-w-4xl mx-auto space-y-6">
+        {/* Back Button */}
+        <Link to="/" className="inline-flex items-center gap-2 text-black hover:underline font-medium">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          Back to Projects
+        </Link>
+
+        {/* Project Header */}
+        <div className="card p-6 space-y-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-2">
+              {project.category && <span className="badge">{project.category}</span>}
+              <h1 className="text-3xl font-bold text-black">{project.name}</h1>
+            </div>
+            <VoteWidget voteKey={`project:${project.id}`} size="md" />
+          </div>
+
+          <p className="text-black leading-relaxed">{project.description || 'No description available'}</p>
+
+          {/* Repository Links */}
+          <div className="flex flex-wrap gap-4 pt-4 border-t-2 border-black">
+            {project.repositories.map((repo) => (
+              <a
+                key={repo.id}
+                href={repo.githubUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-2 text-black underline hover:no-underline"
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path
+                    fillRule="evenodd"
+                    d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                {repo.name}
+                <span className="text-muted">⭐ {repo.stars.toLocaleString()}</span>
+              </a>
+            ))}
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-3 gap-4">
+          <div className="card p-4 text-center">
+            <div className="text-3xl font-bold text-black">{project.repositories.length}</div>
+            <div className="text-sm text-muted">Repositories</div>
+          </div>
+          <div className="card p-4 text-center">
+            <div className="text-3xl font-bold text-black">{totalStars.toLocaleString()}</div>
+            <div className="text-sm text-muted">Total Stars</div>
+          </div>
+          <div className="card p-4 text-center">
+            <div className="text-3xl font-bold text-black">{allContributors.length}</div>
+            <div className="text-sm text-muted">Contributors</div>
+          </div>
+        </div>
+
+        {/* Repositories */}
+        <div className="card p-6 space-y-4">
+          <h2 className="text-xl font-bold text-black">Repositories</h2>
+          <div className="space-y-4">
+            {project.repositories.map((repo) => (
+              <div key={repo.id} className="p-4 border-2 border-black space-y-3">
+                <div className="flex items-center justify-between">
+                  <a
+                    href={repo.githubUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-bold text-black underline hover:no-underline text-lg"
+                  >
+                    {repo.name}
+                  </a>
+                  <span className="flex items-center gap-1 text-black">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                    </svg>
+                    {repo.stars.toLocaleString()}
+                  </span>
+                </div>
+                {repo.description && <p className="text-sm text-muted">{repo.description}</p>}
+                {repo.contributors && repo.contributors.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    {repo.contributors.slice(0, 5).map((contributor, idx) => (
+                      <a
+                        key={`${contributor.githubHandle}-${idx}`}
+                        href={`https://github.com/${contributor.githubHandle}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-2 p-1 border border-black hover:bg-gray-50"
+                      >
+                        {contributor.avatarUrl && (
+                          <img src={contributor.avatarUrl} alt={contributor.githubHandle} className="h-6 w-6 object-cover" />
+                        )}
+                        <span className="text-xs">@{contributor.githubHandle}</span>
+                      </a>
+                    ))}
+                    {repo.contributors.length > 5 && <span className="text-xs text-muted p-1">+{repo.contributors.length - 5} more</span>}
+                  </div>
+                )}
+
+                {/* Issues Section */}
+                {repo.issues && repo.issues.length > 0 && (
+                  <div className="pt-3 border-t border-gray-200">
+                    <h4 className="text-sm font-bold text-black mb-2 flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      Open Issues ({repo.issues.filter((i) => i.state === 'open').length})
+                    </h4>
+                    <div className="space-y-2">
+                      {repo.issues.slice(0, 5).map((issue) => (
+                        <div key={issue.id} className="w-full p-3 border border-black">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span
+                                  className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                                    issue.state === 'open' ? 'bg-green-500' : 'bg-purple-500'
+                                  }`}
+                                />
+                                <span className="text-xs text-muted">#{issue.number}</span>
+                              </div>
+                              <a
+                                href={issue.htmlUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-sm font-medium text-black underline hover:no-underline truncate"
+                              >
+                                {issue.title}
+                              </a>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => openBountyModal(issue, repo.githubUrl)}
+                              className="btn-secondary text-xs px-2 py-1 flex-shrink-0"
+                            >
+                              {isConnected ? '+ Bounty' : 'Connect to bounty'}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      {repo.issues.length > 5 && (
+                        <a
+                          href={`${repo.githubUrl}/issues`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="block text-center text-sm text-black underline hover:no-underline py-2"
+                        >
+                          View all {repo.issues.length} issues on GitHub →
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* All Contributors */}
+        {allContributors.length > 0 && (
+          <div className="card p-6 space-y-4">
+            <h2 className="text-xl font-bold text-black">All Contributors</h2>
+            <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {allContributors.map((contributor, idx) => (
+                <div key={`${contributor.githubHandle}-${idx}`} className="flex items-center gap-3 p-3 border-2 border-black">
+                  {contributor.avatarUrl && (
+                    <img
+                      src={contributor.avatarUrl}
+                      alt={contributor.githubHandle}
+                      className="h-12 w-12 object-cover border-2 border-black"
+                    />
+                  )}
+                  <a
+                    href={`https://github.com/${contributor.githubHandle}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-bold text-black underline hover:no-underline"
+                  >
+                    @{contributor.githubHandle}
+                  </a>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Create Bounty Modal */}
+      {isBountyModalOpen && (
+        <CreateBountyModal
+          issue={selectedIssue}
+          repoName={selectedRepoName}
+          projectName={project.name}
+          onClose={closeBountyModal}
+          onSubmit={handleCreateBounty}
+        />
+      )}
+
+      <ConnectWalletModal open={isConnectModalOpen} onClose={() => setIsConnectModalOpen(false)} />
+    </div>
+  )
+}

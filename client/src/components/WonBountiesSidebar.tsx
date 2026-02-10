@@ -12,11 +12,8 @@ export default function WonBountiesSidebar() {
 
   // Extract GitHub username from Web3Auth userInfo
   // When using GitHub login, verifierId contains the GitHub username
-  const githubUsername = typeof userInfo?.name === 'string' 
-    ? userInfo.name 
-    : typeof userInfo?.verifierId === 'string' 
-      ? userInfo.verifierId 
-      : null
+  const githubUsername =
+    typeof userInfo?.name === 'string' ? userInfo.name : typeof userInfo?.verifierId === 'string' ? userInfo.verifierId : null
 
   useEffect(() => {
     if (!isConnected || !githubUsername) {
@@ -138,10 +135,7 @@ export default function WonBountiesSidebar() {
               <ul className="space-y-1 max-h-40 overflow-y-auto">
                 {claimed.slice(0, 5).map((bounty) => (
                   <li key={bounty.id}>
-                    <Link
-                      to={`/bounty/${bounty.id}`}
-                      className="block p-2 border border-gray-200 hover:border-gray-400 transition-colors"
-                    >
+                    <Link to={`/bounty/${bounty.id}`} className="block p-2 border border-gray-200 hover:border-gray-400 transition-colors">
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-muted truncate">
                           {bounty.repoOwner}/{bounty.repoName} #{bounty.issueNumber}
@@ -151,9 +145,7 @@ export default function WonBountiesSidebar() {
                     </Link>
                   </li>
                 ))}
-                {claimed.length > 5 && (
-                  <p className="text-xs text-muted text-center pt-1">+ {claimed.length - 5} more</p>
-                )}
+                {claimed.length > 5 && <p className="text-xs text-muted text-center pt-1">+ {claimed.length - 5} more</p>}
               </ul>
             </div>
           )}

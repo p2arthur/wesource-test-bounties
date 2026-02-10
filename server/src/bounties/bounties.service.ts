@@ -345,9 +345,7 @@ export class BountiesService implements OnModuleInit {
             result.updated++;
           } else if (onChainBounty.winnerAddress && matchingDbBounty.status === 'OPEN') {
             // On-chain has winner set but not paid - unusual state, log it
-            this.logger.warn(
-              `On-chain bounty ${matchingDbBounty.id} has winner ${onChainBounty.winnerAddress} but not paid yet.`,
-            );
+            this.logger.warn(`On-chain bounty ${matchingDbBounty.id} has winner ${onChainBounty.winnerAddress} but not paid yet.`);
           }
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Unknown error';
@@ -356,9 +354,7 @@ export class BountiesService implements OnModuleInit {
         }
       }
 
-      this.logger.log(
-        `On-chain sync complete: checked=${result.checked}, updated=${result.updated}, newOnChain=${result.newOnChain}`,
-      );
+      this.logger.log(`On-chain sync complete: checked=${result.checked}, updated=${result.updated}, newOnChain=${result.newOnChain}`);
       return result;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -416,7 +412,7 @@ export class BountiesService implements OnModuleInit {
       // Process bounties in parallel batches for faster checking
       for (let i = 0; i < openBounties.length; i += this.batchSize) {
         const batch = openBounties.slice(i, i + this.batchSize);
-        
+
         const results = await Promise.allSettled(
           batch.map(async (bounty) => {
             const issueNumber = Number(bounty.issueNumber);
@@ -434,11 +430,11 @@ export class BountiesService implements OnModuleInit {
             });
 
             return { bounty, repoInfo, issueNumber, issueInfo };
-          })
+          }),
         );
 
         let rateLimitHit = false;
-        
+
         for (const result of results) {
           if (result.status === 'rejected') {
             const error = result.reason;
@@ -456,11 +452,11 @@ export class BountiesService implements OnModuleInit {
           if (!data) continue;
 
           const { bounty, repoInfo, issueNumber, issueInfo } = data;
-          
+
           this.logger.debug(
             `GitHub check for ${repoInfo.owner}/${repoInfo.repo}#${issueNumber}: ` +
               `closed=${issueInfo.isClosed}, ` +
-              `closedBy=${issueInfo.closedByPrAuthor?.login ?? 'none'}`
+              `closedBy=${issueInfo.closedByPrAuthor?.login ?? 'none'}`,
           );
 
           const closedBy = issueInfo.closedByPrAuthor;
@@ -495,7 +491,7 @@ export class BountiesService implements OnModuleInit {
         }
 
         if (rateLimitHit) break;
-        
+
         // Small delay between batches to avoid overwhelming GitHub API
         if (i + this.batchSize < openBounties.length) {
           await this.delay(this.checkDelayMs);

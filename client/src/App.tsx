@@ -26,11 +26,7 @@ if (import.meta.env.VITE_ALGOD_NETWORK === 'localnet') {
     },
   ]
 } else {
-  supportedWallets = [
-    { id: WalletId.DEFLY },
-    { id: WalletId.PERA },
-    { id: WalletId.EXODUS },
-  ]
+  supportedWallets = [{ id: WalletId.DEFLY }, { id: WalletId.PERA }, { id: WalletId.EXODUS }]
 }
 
 export default function App() {

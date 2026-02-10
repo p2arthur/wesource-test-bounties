@@ -114,98 +114,98 @@ const Home: React.FC = () => {
           {/* Main Content */}
           <div className="flex-1 space-y-6">
             <div className="flex gap-4 items-center justify-between glass h-16 p-4">
-          <div className="flex gap-2">
-            {(['projects', 'bounties'] as Tab[]).map((tab) => (
-              <button
-                key={tab}
-                className={`btn-secondary px-4 py-2 text-sm ${tab === activeTab ? 'is-active' : ''}`}
-                onClick={() => setActiveTab(tab)}
-              >
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex gap-2 items-center flex-wrap">
-            <span className="text-sm font-medium text-black">Filter:</span>
-            <button
-              className={`btn-secondary px-3 py-2 text-sm ${category === 'ALL' ? 'is-active' : ''}`}
-              onClick={() => setCategory('ALL')}
-            >
-              All
-            </button>
-            {categoryFilters.map((cat) => (
-              <button
-                key={cat}
-                className={`btn-secondary px-3 py-2 text-sm ${category === cat ? 'is-active' : ''}`}
-                onClick={() => setCategory(cat)}
-              >
-                {cat}
-              </button>
-            ))}
-            <button className="btn-primary flex items-center gap-2 ml-auto" onClick={() => setOpenSubmitProjectModal(true)}>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              Submit Project
-            </button>
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          {loading ? (
-            <div className="card p-8 text-center">
-              <LoadingPair size="lg" label="Loading projects..." />
-            </div>
-          ) : error ? (
-            <div className="card p-8 text-center space-y-4">
-              <div className="text-red-600">{error}</div>
-              <p className="text-muted text-sm">
-                Make sure the API server is running at {import.meta.env.VITE_API_URL || 'http://localhost:3000'}
-              </p>
-            </div>
-          ) : activeTab === 'projects' ? (
-            filteredProjects.length > 0 ? (
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                {filteredProjects.map((project) => (
-                  <ProjectCard key={project.id} project={project} />
+              <div className="flex gap-2">
+                {(['projects', 'bounties'] as Tab[]).map((tab) => (
+                  <button
+                    key={tab}
+                    className={`btn-secondary px-4 py-2 text-sm ${tab === activeTab ? 'is-active' : ''}`}
+                    onClick={() => setActiveTab(tab)}
+                  >
+                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                  </button>
                 ))}
               </div>
-            ) : (
-              <div className="card p-8 text-center space-y-2">
-                <div className="text-black font-medium">No projects yet</div>
-                <p className="text-muted text-sm">Submit your first project using the button above!</p>
+
+              <div className="flex gap-2 items-center flex-wrap">
+                <span className="text-sm font-medium text-black">Filter:</span>
+                <button
+                  className={`btn-secondary px-3 py-2 text-sm ${category === 'ALL' ? 'is-active' : ''}`}
+                  onClick={() => setCategory('ALL')}
+                >
+                  All
+                </button>
+                {categoryFilters.map((cat) => (
+                  <button
+                    key={cat}
+                    className={`btn-secondary px-3 py-2 text-sm ${category === cat ? 'is-active' : ''}`}
+                    onClick={() => setCategory(cat)}
+                  >
+                    {cat}
+                  </button>
+                ))}
+                <button className="btn-primary flex items-center gap-2 ml-auto" onClick={() => setOpenSubmitProjectModal(true)}>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  Submit Project
+                </button>
               </div>
-            )
-          ) : (
-            <>
-              {bountiesLoading ? (
+            </div>
+
+            <div className="space-y-6">
+              {loading ? (
                 <div className="card p-8 text-center">
-                  <LoadingPair size="lg" label="Loading bounties..." />
+                  <LoadingPair size="lg" label="Loading projects..." />
                 </div>
-              ) : bountiesError ? (
+              ) : error ? (
                 <div className="card p-8 text-center space-y-4">
-                  <div className="text-red-600">{bountiesError}</div>
+                  <div className="text-red-600">{error}</div>
                   <p className="text-muted text-sm">
                     Make sure the API server is running at {import.meta.env.VITE_API_URL || 'http://localhost:3000'}
                   </p>
                 </div>
-              ) : filteredBounties.length > 0 ? (
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {filteredBounties.map((bounty) => (
-                    <BountyCard key={bounty.id} bounty={bounty} />
-                  ))}
-                </div>
+              ) : activeTab === 'projects' ? (
+                filteredProjects.length > 0 ? (
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                    {filteredProjects.map((project) => (
+                      <ProjectCard key={project.id} project={project} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="card p-8 text-center space-y-2">
+                    <div className="text-black font-medium">No projects yet</div>
+                    <p className="text-muted text-sm">Submit your first project using the button above!</p>
+                  </div>
+                )
               ) : (
-                <div className="card p-8 text-center space-y-2">
-                  <div className="text-black font-medium">No bounties yet</div>
-                  <p className="text-muted text-sm">Create a bounty on a project issue to get started.</p>
-                </div>
+                <>
+                  {bountiesLoading ? (
+                    <div className="card p-8 text-center">
+                      <LoadingPair size="lg" label="Loading bounties..." />
+                    </div>
+                  ) : bountiesError ? (
+                    <div className="card p-8 text-center space-y-4">
+                      <div className="text-red-600">{bountiesError}</div>
+                      <p className="text-muted text-sm">
+                        Make sure the API server is running at {import.meta.env.VITE_API_URL || 'http://localhost:3000'}
+                      </p>
+                    </div>
+                  ) : filteredBounties.length > 0 ? (
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                      {filteredBounties.map((bounty) => (
+                        <BountyCard key={bounty.id} bounty={bounty} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="card p-8 text-center space-y-2">
+                      <div className="text-black font-medium">No bounties yet</div>
+                      <p className="text-muted text-sm">Create a bounty on a project issue to get started.</p>
+                    </div>
+                  )}
+                </>
               )}
-            </>
-          )}
-        </div>
-        </div>
+            </div>
+          </div>
 
           {/* Won Bounties Sidebar */}
           {isConnected && (

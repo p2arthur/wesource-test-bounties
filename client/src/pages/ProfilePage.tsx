@@ -1,4 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
+import WalletInterface from '../components/WalletInterface'
 import { ellipseAddress } from '../utils/ellipseAddress'
 
 export default function ProfilePage() {
@@ -14,7 +15,6 @@ export default function ProfilePage() {
           </svg>
           Back to Home
         </Link>
-
         <div className="card p-6 space-y-4">
           <div className="flex items-center gap-4">
             <div className="h-16 w-16 border-2 border-black flex items-center justify-center bg-white overflow-hidden">
@@ -52,11 +52,12 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
-
         <div className="card p-6 text-center space-y-2">
           <div className="text-black font-medium">No activity yet</div>
           <p className="text-sm text-muted">Once this wallet creates projects or completes bounties, they’ll show up here.</p>
         </div>
+        {/* Wallet Interface */}
+        <WalletInterface />{' '}
       </div>
     </div>
   )

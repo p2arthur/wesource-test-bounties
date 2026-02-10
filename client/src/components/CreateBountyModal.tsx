@@ -5,19 +5,23 @@ import LoadingPair from './LoadingPair'
 import Modal from './Modal'
 import Tooltip from './Tooltip'
 
+type SubmitStep = 'idle' | 'blockchain' | 'server' | 'complete'
+
 interface CreateBountyModalProps {
   issue: Issue | null
+  repoOwner: string
   repoName: string
   projectName: string
   onClose: () => void
-  onSubmit: (issueNumber: number, amount: number, creatorWallet: string) => Promise<void>
+  onSubmit: (issueNumber: number, amount: number, creatorWallet: string, repoOwner: string, repoName: string) => Promise<void>
 }
 
-export default function CreateBountyModal({ issue, repoName, projectName, onClose, onSubmit }: CreateBountyModalProps) {
+export default function CreateBountyModal({ issue, repoOwner, repoName, projectName, onClose, onSubmit }: CreateBountyModalProps) {
   const { activeAddress } = useUnifiedWallet()
   const [amount, setAmount] = useState<string>('')
   const [creatorWallet, setCreatorWallet] = useState<string>('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitStep, setSubmitStep] = useState<SubmitStep>('idle')
   const [error, setError] = useState<string | null>(null)
   const lastAutoFilled = useRef<string>('')
 
@@ -39,13 +43,16 @@ export default function CreateBountyModal({ issue, repoName, projectName, onClos
     }
 
     setIsSubmitting(true)
+    setSubmitStep('blockchain')
     try {
-      console.log('Submitting bounty with:', { issueNumber: issue, algoAmount, creatorWallet })
+      console.log('Submitting bounty with:', { issueNumber: issue, algoAmount, creatorWallet, repoOwner, repoName })
 
-      await onSubmit(issue.number, algoAmount, creatorWallet.trim())
+      await onSubmit(issue.number, algoAmount, creatorWallet.trim(), repoOwner, repoName)
+      setSubmitStep('complete')
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create bounty')
+      setSubmitStep('idle')
     } finally {
       setIsSubmitting(false)
     }
@@ -103,8 +110,8 @@ export default function CreateBountyModal({ issue, repoName, projectName, onClos
       <form onSubmit={handleSubmit} className="space-y-4">
         <label className="flex flex-col gap-2">
           <span className="text-sm font-medium text-black">
-            Bounty Amount (USDC)
-            <Tooltip text="This amount will be locked in a smart contract until the bounty is completed.">
+            Bounty Amount (ALGO)
+            <Tooltip text="This amount will be locked in the smart contract until the bounty is completed and claimed.">
               <span className="ml-2 inline-flex h-4 w-4 items-center justify-center border border-black text-[10px]">?</span>
             </Tooltip>
           </span>
@@ -118,12 +125,12 @@ export default function CreateBountyModal({ issue, repoName, projectName, onClos
                 className="input-field w-full pr-16"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                placeholder="100"
+                placeholder="10"
                 disabled={isSubmitting}
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted font-medium">USDC</span>
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted font-medium">ALGO</span>
             </div>
-            <span className="text-green-500">You have 300 USDC to fund bounties</span>
+            <span className="text-xs text-muted mt-1">Funds will be deposited to the smart contract</span>
           </div>
         </label>
 
@@ -157,8 +164,32 @@ export default function CreateBountyModal({ issue, repoName, projectName, onClos
         </div>
 
         {isSubmitting && (
-          <div className="border-2 border-black bg-yellow-50 py-3">
-            <LoadingPair size="md" label="Processing bounty..." />
+          <div className="border-2 border-black bg-yellow-50 p-4 space-y-3">
+            <div className="flex items-center gap-3">
+              <div
+                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                  submitStep === 'blockchain' ? 'bg-yellow-400 animate-pulse' : 'bg-green-400'
+                }`}
+              >
+                1
+              </div>
+              <span className="text-sm font-medium">
+                {submitStep === 'blockchain' ? 'Signing & submitting to blockchain...' : 'Blockchain transaction submitted'}
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
+              <div
+                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                  submitStep === 'server' ? 'bg-yellow-400 animate-pulse' : submitStep === 'complete' ? 'bg-green-400' : 'bg-gray-300'
+                }`}
+              >
+                2
+              </div>
+              <span className={`text-sm ${submitStep === 'blockchain' ? 'text-gray-400' : 'font-medium'}`}>
+                {submitStep === 'server' ? 'Registering bounty...' : 'Register with server'}
+              </span>
+            </div>
+            <LoadingPair size="md" label="Please confirm in your wallet..." />
           </div>
         )}
       </form>

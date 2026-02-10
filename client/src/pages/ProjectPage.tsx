@@ -7,7 +7,8 @@ import VoteWidget from '../components/VoteWidget'
 import { useProjects } from '../contexts/ProjectContext'
 import { useUnifiedWallet } from '../hooks/useUnifiedWallet'
 import { Issue, Project } from '../interfaces/entities'
-import { createBounty } from '../services/api'
+import { createBounty, checkBountyExists, listBounties, Bounty } from '../services/api'
+import { createBountyOnChain } from '../services/bountyContract'
 
 export default function ProjectPage() {
   const { projectId } = useParams<{ projectId: string }>()
@@ -20,7 +21,15 @@ export default function ProjectPage() {
   const [selectedRepoName, setSelectedRepoName] = useState<string>('')
   const [isBountyModalOpen, setIsBountyModalOpen] = useState(false)
   const [isConnectModalOpen, setIsConnectModalOpen] = useState(false)
-  const { isConnected } = useUnifiedWallet()
+  const [bounties, setBounties] = useState<Bounty[]>([])
+  const { isConnected, activeAddress, signer } = useUnifiedWallet()
+
+  const getIssueBounty = (repoUrl: string, issueNumber: number): Bounty | undefined => {
+    const repoInfo = parseGithubRepoInfo(repoUrl)
+    if (!repoInfo) return undefined
+    const issueUrl = `https://github.com/${repoInfo.owner}/${repoInfo.name}/issues/${issueNumber}`
+    return bounties.find((b) => b.issueUrl === issueUrl)
+  }
 
   const parseGithubRepoInfo = (repoUrl: string) => {
     try {
@@ -59,8 +68,8 @@ export default function ProjectPage() {
     setSelectedRepoName('')
   }
 
-  const handleCreateBounty = async (issueNumber: number, amount: number, creatorWallet: string) => {
-    if (!selectedRepoOwner || !selectedRepoName) {
+  const handleCreateBounty = async (issueNumber: number, amount: number, creatorWallet: string, repoOwner: string, repoName: string) => {
+    if (!repoOwner || !repoName) {
       throw new Error('Missing repository info for bounty creation.')
     }
 
@@ -73,16 +82,45 @@ export default function ProjectPage() {
     if (!creatorWallet.trim()) {
       throw new Error('Creator wallet is required.')
     }
+    if (!signer) {
+      throw new Error('Wallet signer not available. Please reconnect your wallet.')
+    }
+    if (!activeAddress) {
+      throw new Error('No active wallet address. Please connect your wallet.')
+    }
 
+    // Step 0: Check if bounty already exists for this issue
+    const existingBounty = await checkBountyExists(repoOwner, repoName, issueNumber)
+    if (existingBounty) {
+      throw new Error(`A bounty already exists for issue #${issueNumber}. Check the bounties list.`)
+    }
+
+    // Step 1: Create bounty on-chain first
+    console.log('Creating bounty on-chain...', { repoOwner, repoName, issueNumber, amount })
+    const onChainResult = await createBountyOnChain({
+      repoOwner,
+      repoName,
+      issueNumber: Math.trunc(issueNumber),
+      amountAlgo: amount,
+      senderAddress: activeAddress,
+      signer,
+    })
+    console.log('On-chain bounty created:', onChainResult)
+
+    // Step 2: Register bounty with server
     const created = await createBounty({
-      repoOwner: selectedRepoOwner,
-      repoName: selectedRepoName,
+      repoOwner,
+      repoName,
       issueNumber: Math.trunc(issueNumber),
       amount,
       creatorWallet: creatorWallet.trim(),
     })
 
+    console.log('Bounty registered with server:', created)
     localStorage.setItem(`bountyKey:${created.id}`, created.bountyKey)
+
+    // Refresh bounties list to update UI
+    listBounties().then(setBounties).catch(console.error)
   }
 
   useEffect(() => {
@@ -104,6 +142,10 @@ export default function ProjectPage() {
     }
     loadProject()
   }, [projectId, getProjectById])
+
+  useEffect(() => {
+    listBounties().then(setBounties).catch(console.error)
+  }, [])
 
   if (loading) {
     return (
@@ -257,48 +299,48 @@ export default function ProjectPage() {
                       </svg>
                       Open Issues ({repo.issues.filter((i) => i.state === 'open').length})
                     </h4>
-                    <div className="space-y-2">
-                      {repo.issues.slice(0, 5).map((issue) => (
-                        <div key={issue.id} className="w-full p-3 border border-black">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span
-                                  className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                                    issue.state === 'open' ? 'bg-green-500' : 'bg-purple-500'
-                                  }`}
-                                />
-                                <span className="text-xs text-muted">#{issue.number}</span>
+                    <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                      {repo.issues
+                        .filter((i) => i.state === 'open')
+                        .map((issue) => (
+                          <div key={issue.id} className="w-full p-3 border border-black">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="w-2 h-2 rounded-full flex-shrink-0 bg-green-500" />
+                                  <span className="text-xs text-muted">#{issue.number}</span>
+                                </div>
+                                <a
+                                  href={issue.htmlUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-sm font-medium text-black underline hover:no-underline truncate"
+                                >
+                                  {issue.title}
+                                </a>
                               </div>
-                              <a
-                                href={issue.htmlUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-sm font-medium text-black underline hover:no-underline truncate"
-                              >
-                                {issue.title}
-                              </a>
+                              {(() => {
+                                const existingBounty = getIssueBounty(repo.githubUrl, issue.number)
+                                if (existingBounty) {
+                                  return (
+                                    <span className="text-xs px-2 py-1 flex-shrink-0 bg-yellow-100 border border-yellow-400 text-yellow-800 font-medium">
+                                      {existingBounty.amount} ALGO
+                                    </span>
+                                  )
+                                }
+                                return (
+                                  <button
+                                    type="button"
+                                    onClick={() => openBountyModal(issue, repo.githubUrl)}
+                                    className="btn-secondary text-xs px-2 py-1 flex-shrink-0"
+                                  >
+                                    {isConnected ? '+ Bounty' : 'Connect to bounty'}
+                                  </button>
+                                )
+                              })()}
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => openBountyModal(issue, repo.githubUrl)}
-                              className="btn-secondary text-xs px-2 py-1 flex-shrink-0"
-                            >
-                              {isConnected ? '+ Bounty' : 'Connect to bounty'}
-                            </button>
                           </div>
-                        </div>
-                      ))}
-                      {repo.issues.length > 5 && (
-                        <a
-                          href={`${repo.githubUrl}/issues`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="block text-center text-sm text-black underline hover:no-underline py-2"
-                        >
-                          View all {repo.issues.length} issues on GitHub →
-                        </a>
-                      )}
+                        ))}
                     </div>
                   </div>
                 )}
@@ -340,6 +382,7 @@ export default function ProjectPage() {
       {isBountyModalOpen && (
         <CreateBountyModal
           issue={selectedIssue}
+          repoOwner={selectedRepoOwner}
           repoName={selectedRepoName}
           projectName={project.name}
           onClose={closeBountyModal}

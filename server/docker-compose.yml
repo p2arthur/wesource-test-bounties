@@ -21,6 +21,18 @@ services:
       - '3000:3000'
     environment:
       DATABASE_URL: 'postgresql://user:password@db:5432/wesource_db?schema=public'
+      # Algorand configuration (TestNet via Algonode)
+      ALGOD_SERVER: ${ALGOD_SERVER:-https://testnet-api.algonode.cloud}
+      ALGOD_PORT: ${ALGOD_PORT:-}
+      ALGOD_TOKEN: ${ALGOD_TOKEN:-}
+      SOURCE_FACTORY_APP_ID: ${SOURCE_FACTORY_APP_ID:-755043090}
+      MANAGER_MNEMONIC: ${MANAGER_MNEMONIC:-}
+      # Indexer configuration (TestNet via Algonode)
+      INDEXER_SERVER: ${INDEXER_SERVER:-https://testnet-idx.algonode.cloud}
+      INDEXER_PORT: ${INDEXER_PORT:-}
+      INDEXER_TOKEN: ${INDEXER_TOKEN:-}
+      # GitHub configuration
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
     volumes:
       - ./:/usr/src/app
       - /usr/src/app/node_modules

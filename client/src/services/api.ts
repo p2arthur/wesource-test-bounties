@@ -157,3 +157,24 @@ export async function listBounties(): Promise<ListBountiesResponse> {
   }
   return response.json()
 }
+
+export async function checkBountyExists(repoOwner: string, repoName: string, issueNumber: number): Promise<Bounty | undefined> {
+  const bounties = await listBounties()
+  const issueUrl = `https://github.com/${repoOwner}/${repoName}/issues/${issueNumber}`
+  return bounties.find((b) => b.issueUrl === issueUrl)
+}
+
+export interface WonBounty extends Bounty {
+  claimedAt?: string | null
+}
+
+export async function listWonBounties(githubUsername: string): Promise<WonBounty[]> {
+  if (!githubUsername) {
+    return []
+  }
+  const response = await fetch(`${API_BASE_URL}/api/bounties/winner/${encodeURIComponent(githubUsername)}`)
+  if (!response.ok) {
+    throw new Error('Failed to fetch won bounties')
+  }
+  return response.json()
+}

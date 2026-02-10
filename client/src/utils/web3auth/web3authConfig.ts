@@ -76,6 +76,8 @@ export interface Web3AuthUserInfo {
   name?: string
   profileImage?: string
   typeOfLogin?: string
+  verifierId?: string
+  verifier?: string
   [key: string]: unknown
 }
 

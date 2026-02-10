@@ -2,6 +2,7 @@ import { SupportedWallet, WalletId, WalletManager, WalletProvider } from '@txnla
 import { SnackbarProvider } from 'notistack'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import Footer from './components/Footer'
+import Layout from './components/Layout'
 import { ProjectProvider } from './contexts/ProjectContext'
 import { VoteProvider } from './contexts/VoteContext'
 import { Web3AuthProvider } from './contexts/Web3AuthContext'
@@ -59,14 +60,14 @@ export default function App() {
             <VoteProvider>
               <BrowserRouter>
                 <div className="min-h-screen flex flex-col">
-                  <div className="flex-1">
+                  <Layout>
                     <Routes>
                       <Route path="/" element={<Home />} />
                       <Route path="/project/:projectId" element={<ProjectPage />} />
                       <Route path="/bounty/:bountyId" element={<BountyPage />} />
                       <Route path="/profile/:walletAddress" element={<ProfilePage />} />
                     </Routes>
-                  </div>
+                  </Layout>
                   <Footer />
                 </div>
               </BrowserRouter>

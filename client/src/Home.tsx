@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import AppCalls from './components/AppCalls'
 import BountyCard from './components/BountyCard'
-import HeaderBar from './components/HeaderBar'
 import LoadingPair from './components/LoadingPair'
 import ProjectCard from './components/ProjectCard'
 import SubmitProjectForm from './components/SubmitProjectForm'
 import Transact from './components/Transact'
+import WonBountiesSidebar from './components/WonBountiesSidebar'
 import { useProjects } from './contexts/ProjectContext'
+import { useUnifiedWallet } from './hooks/useUnifiedWallet'
 import { Bounty, ProjectCategory } from './interfaces/entities'
 import { listBounties } from './services/api'
 
@@ -25,6 +26,7 @@ const Home: React.FC = () => {
   const [bountiesError, setBountiesError] = useState<string | null>(null)
 
   const { projects, loading, error } = useProjects()
+  const { isConnected } = useUnifiedWallet()
 
   useEffect(() => {
     let isActive = true
@@ -98,16 +100,20 @@ const Home: React.FC = () => {
 
   return (
     <div className="min-h-screen">
-      <HeaderBar />
-
-      <div className="mx-auto space-y-6 px-4 py-8">
-        <div className="card p-6">
+      <div className="mx-auto px-4 py-8">
+        {/* Hero Section */}
+        <div className="card p-6 mb-6">
           <h2 className="text-3xl font-bold text-black">Open Source, Incentivized.</h2>
           <p className="text-sm text-muted mt-2">
             Bridge the gap between critical code and fair rewards with decentralized bounties that power software sustainability.
           </p>
         </div>
-        <div className="flex  gap-4 items-center justify-between glass h-16 p-4">
+
+        {/* Main Layout with Sidebar */}
+        <div className={`flex gap-6 ${isConnected ? 'flex-col lg:flex-row' : ''}`}>
+          {/* Main Content */}
+          <div className="flex-1 space-y-6">
+            <div className="flex gap-4 items-center justify-between glass h-16 p-4">
           <div className="flex gap-2">
             {(['projects', 'bounties'] as Tab[]).map((tab) => (
               <button
@@ -197,6 +203,17 @@ const Home: React.FC = () => {
                 </div>
               )}
             </>
+          )}
+        </div>
+        </div>
+
+          {/* Won Bounties Sidebar */}
+          {isConnected && (
+            <div className="w-full lg:w-80 lg:flex-shrink-0">
+              <div className="lg:sticky lg:top-4">
+                <WonBountiesSidebar />
+              </div>
+            </div>
           )}
         </div>
       </div>

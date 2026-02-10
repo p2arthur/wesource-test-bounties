@@ -2,7 +2,7 @@
   "name": "server",
   "version": "0.0.1",
   "description": "",
-  "author": "",
+  "author": "", 
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
@@ -20,13 +20,13 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
-    "@algorandfoundation/algokit-utils": "^9.2.0",
+    "@algorandfoundation/algokit-utils": "^10.0.0-alpha.32",
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/swagger": "^11.2.5",
+    "@noble/hashes": "^2.0.1",
     "@prisma/adapter-pg": "^6.19.2",
-    "algosdk": "^3.5.2",
     "axios": "^1.13.2",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.3",

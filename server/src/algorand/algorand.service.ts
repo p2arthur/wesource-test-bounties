@@ -1,9 +1,9 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { AlgorandClient } from '@algorandfoundation/algokit-utils';
-import { Arc56Contract } from '@algorandfoundation/algokit-utils/types/app-arc56';
+import { AlgorandClient, encodeAddress } from '@algorandfoundation/algokit-utils';
+import { Arc56Contract } from '@algorandfoundation/algokit-utils/abi';
+import { AlgodClient } from '@algorandfoundation/algokit-utils/algod-client';
 import * as fs from 'fs';
 import * as path from 'path';
-import algosdk from 'algosdk';
 import axios from 'axios';
 
 export interface OnChainBounty {
@@ -28,7 +28,7 @@ export class AlgorandService implements OnModuleInit {
   private appSpec: Arc56Contract;
   private appId: bigint;
   private managerAddress: string;
-  private algodClient: algosdk.Algodv2;
+  private algodClient: AlgodClient;
   private indexerBaseUrl: string;
 
   onModuleInit() {
@@ -56,7 +56,11 @@ export class AlgorandService implements OnModuleInit {
     this.appId = BigInt(appIdEnv);
 
     // Initialize raw algod client for box queries (works without manager)
-    this.algodClient = new algosdk.Algodv2(algodToken, algodServer, algodPort || undefined);
+    this.algodClient = new AlgodClient({
+      baseUrl: algodServer,
+      port: algodPort || undefined,
+      token: algodToken,
+    });
     this.logger.log(`Algod client initialized for ${algodServer}. App ID: ${this.appId}`);
 
     // Load ARC-56 app spec (needed for write operations)
@@ -184,7 +188,7 @@ export class AlgorandService implements OnModuleInit {
 
     try {
       // Get all box names for the app
-      const boxesResponse = await this.algodClient.getApplicationBoxes(Number(this.appId)).do();
+      const boxesResponse = await this.algodClient.applicationBoxes(this.appId);
 
       for (const boxDesc of boxesResponse.boxes) {
         const boxName = Buffer.from(boxDesc.name);
@@ -199,7 +203,7 @@ export class AlgorandService implements OnModuleInit {
         const bountyId = bountyIdBytes.readBigUInt64BE(0);
 
         // Fetch box contents
-        const boxResponse = await this.algodClient.getApplicationBoxByName(Number(this.appId), boxName).do();
+        const boxResponse = await this.algodClient.applicationBoxByName(this.appId, boxName);
         const boxValue = Buffer.from(boxResponse.value);
 
         // Parse BountyDataType struct:
@@ -212,7 +216,7 @@ export class AlgorandService implements OnModuleInit {
 
         // Check if winner is zero address
         const isZeroAddress = winnerBytes.every((b) => b === 0);
-        const winnerAddress = isZeroAddress ? null : algosdk.encodeAddress(winnerBytes);
+        const winnerAddress = isZeroAddress ? null : encodeAddress(winnerBytes);
 
         bounties.push({
           bountyId,
@@ -245,14 +249,14 @@ export class AlgorandService implements OnModuleInit {
     const boxName = Buffer.concat([boxPrefix, bountyIdBytes]);
 
     try {
-      const boxResponse = await this.algodClient.getApplicationBoxByName(Number(this.appId), boxName).do();
+      const boxResponse = await this.algodClient.applicationBoxByName(this.appId, boxName);
       const boxValue = Buffer.from(boxResponse.value);
 
       const totalValue = boxValue.readBigUInt64BE(0);
       const isPaid = boxValue[8] !== 0;
       const winnerBytes = boxValue.subarray(9, 41);
       const isZeroAddress = winnerBytes.every((b) => b === 0);
-      const winnerAddress = isZeroAddress ? null : algosdk.encodeAddress(winnerBytes);
+      const winnerAddress = isZeroAddress ? null : encodeAddress(winnerBytes);
 
       return {
         bountyId,

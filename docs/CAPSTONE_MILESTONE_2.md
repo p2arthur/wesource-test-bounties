@@ -62,7 +62,7 @@ WeSource is a decentralized bounty platform that connects open-source project ma
 │          │                        │                          │                   │
 │          ▼                        ▼                          ▼                   │
 │  ┌──────────────────┐     ┌──────────────────┐     ┌──────────────────────────┐ │
-│  │   Web3Auth       │     │   SQLite/Prisma  │     │   Indexer (Algonode)     │ │
+│  │   Web3Auth       │     │   postgresql/Prisma  │     │   Indexer (Algonode)     │ │
 │  │   (Social Login) │     │   (Database)     │     │   (Transaction History)  │ │
 │  └──────────────────┘     └──────────────────┘     └──────────────────────────┘ │
 │                                   │                                              │
@@ -132,7 +132,7 @@ WeSource is a decentralized bounty platform that connects open-source project ma
 │  ┌────────┴──────────────────┴──────────────────┴────────────────┴────────┐   │
 │  │                        Data Access Layer                                │   │
 │  ├─────────────────────────────────────────────────────────────────────────┤   │
-│  │                    PrismaService (SQLite ORM)                           │   │
+│  │                    PrismaService (Postgresql ORM)                           │   │
 │  └─────────────────────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────────────────┘
                                      │
@@ -184,7 +184,7 @@ WeSource is a decentralized bounty platform that connects open-source project ma
 │                               │                                                  │
 │                               ▼                                                  │
 │                          ┌────────┐                                             │
-│                          │SQLite  │ (Store bounty metadata)                     │
+│                          │postgresql  │ (Store bounty metadata)                     │
 │                          └────────┘                                             │
 └─────────────────────────────────────────────────────────────────────────────────┘
                                        │
@@ -217,7 +217,7 @@ WeSource is a decentralized bounty platform that connects open-source project ma
 │                                                          │                       │
 │                                                          ▼                       │
 │                                                     ┌────────┐                   │
-│                                                     │SQLite  │ (Mark winner)     │
+│                                                     │postgresql  │ (Mark winner)     │
 │                                                     └────────┘                   │
 └─────────────────────────────────────────────────────────────────────────────────┘
                                        │
@@ -235,7 +235,7 @@ WeSource is a decentralized bounty platform that connects open-source project ma
 │                               │                                                  │
 │                               ▼                                                  │
 │                          ┌────────┐                                             │
-│                          │SQLite  │ (Mark as paid)                              │
+│                          │postgresql  │ (Mark as paid)                              │
 │                          └────────┘                                             │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -290,8 +290,8 @@ The backend uses NestJS with a modular service-oriented architecture.
 
 | Integration | Frontend Component | Backend Service | External System |
 |-------------|-------------------|-----------------|-----------------|
-| Project List | `ProjectContext` | `ProjectsService` | SQLite + GitHub API |
-| Bounty Creation | `CreateBountyModal` | `BountiesService` | SQLite + Algorand |
+| Project List | `ProjectContext` | `ProjectsService` | postgresql + GitHub API |
+| Bounty Creation | `CreateBountyModal` | `BountiesService` | postgresql + Algorand |
 | Wallet Connection | `useUnifiedWallet` | N/A | Pera/Defly/Web3Auth |
 | GitHub Data | `ProjectDetail` | `GithubService` | GitHub GraphQL API |
 | On-Chain State | `BountyCard` | `AlgorandService` | Algorand Indexer |
@@ -314,7 +314,7 @@ The backend uses NestJS with a modular service-oriented architecture.
 
 | Requirement | Implementation |
 |-------------|----------------|
-| **Performance** | SQLite for development, PostgreSQL for production |
+| **Performance** | postgresql for development, PostgreSQL for production |
 | **Type Safety** | Prisma ORM with TypeScript |
 | **Data Integrity** | Foreign key constraints, unique indexes |
 | **Scalability** | Stateless design, ready for horizontal scaling |
@@ -323,11 +323,11 @@ The backend uses NestJS with a modular service-oriented architecture.
 
 | Data Type | Storage Location | Reason |
 |-----------|------------------|--------|
-| Project metadata | SQLite (Prisma) | Persistent, queryable |
-| Repository URLs | SQLite (Prisma) | Foreign key to Project |
+| Project metadata | postgresql (Prisma) | Persistent, queryable |
+| Repository URLs | postgresql (Prisma) | Foreign key to Project |
 | Contributors | GitHub API (live) | Always current |
 | Issues | GitHub API (live) | Real-time status |
-| Bounty metadata | SQLite (Prisma) | Queryable, quick access |
+| Bounty metadata | postgresql (Prisma) | Queryable, quick access |
 | Bounty funds | Algorand (Box Storage) | Secure escrow |
 | Payment state | Algorand (Box Storage) | Immutable record |
 
@@ -345,7 +345,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -432,7 +432,7 @@ interface GlobalState {
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────────┐
-│                           DATABASE SCHEMA (SQLite/Prisma)                      │
+│                           DATABASE SCHEMA (postgresql/Prisma)                      │
 └───────────────────────────────────────────────────────────────────────────────┘
 
 ┌───────────────────────┐         ┌───────────────────────┐
@@ -941,7 +941,7 @@ All API errors follow a consistent format:
 | **Wallet Integration** | use-wallet + Web3Auth | Multi-wallet support |
 | **Backend** | NestJS | REST API server |
 | **ORM** | Prisma | Type-safe database access |
-| **Database** | SQLite (dev) / PostgreSQL (prod) | Data persistence |
+| **Database** | postgresql (dev) / PostgreSQL (prod) | Data persistence |
 | **Blockchain** | Algorand (PuyaTs) | Smart contracts |
 | **External APIs** | GitHub GraphQL/REST | Repository data |
 

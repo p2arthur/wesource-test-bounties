@@ -12,7 +12,7 @@ Repository: github.com/p2arthur/WeSource_monorepo
 
 **Key Capabilities**
 
-- Project Owners: Fund GitHub issues using ALGO.
+- Project Owners: Fund GitHub issues using USDC.
 - Contributors: Solve issues and get paid instantly upon PR merge.
 - Trustless Escrow: Smart contracts hold funds; no middleman.
 - Verification: Automated via GitHub API.
@@ -75,7 +75,7 @@ graph TD
   Issue --> Action{Action}
   Action -->|Owner| Fund[Fund Bounty]
   Action -->|Dev| Submit[Submit PR]
-  Action -->|Winner| Claim[Claim Algo]
+  Action -->|Winner| Claim[Claim USDC]
 ```
 
 **Design References**
@@ -109,7 +109,7 @@ erDiagram
   BOUNTY {
     int id PK
     string bountyKey
-    int amount_microAlgo
+    int amount_USDC
     string status
     int issueNumber
   }
@@ -129,6 +129,8 @@ erDiagram
 | ------- | --------- | --------------- | -------------------------------------------- |
 | Project | POST      | `/projects`     | Create project & link GitHub repos.          |
 | Project | GET       | `/projects/:id` | Fetch project + live GitHub issue data.      |
+| Bounty  | GET       | `/bounties`.    | Fetch all bounties                           |
+| Bounty  | GET       | `/bounties/:id` | Fetch bounty + bounty data                   |
 | Bounty  | POST      | `/bounties`     | Create bounty record after on-chain funding. |
 | Bounty  | PATCH     | `/bounties/:id` | Update status (Open -> Paid).                |
 

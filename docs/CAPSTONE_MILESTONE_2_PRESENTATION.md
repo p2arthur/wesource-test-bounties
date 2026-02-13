@@ -63,26 +63,25 @@ The interaction model separates financial state (Blockchain) from application st
 
 ## 4. UI/UX Strategy & Wireframes
 
-**Design Goal:** A "code-first" dark mode interface focusing on data density and developer ergonomics.
+**Design Goal:** A pixelated social feed interface focusing on open source repo information, developer ergonomics and collaboration
 
 **Key Pages Structure**
 
 ```mermaid
 graph TD
-  Home[Home: Bounty Explorer] --> Project[Project Details]
+  Home[Home: Project/Bounty Explorer] --> Project[Project Details]
   Home --> Profile[User Profile]
   Project --> Issue[Issue & Bounty Status]
   Issue --> Action{Action}
   Action -->|Owner| Fund[Fund Bounty]
-  Action -->|Dev| Submit[Submit PR]
   Action -->|Winner| Claim[Claim USDC]
 ```
 
 **Design References**
 
 - We aim for the clean data visualization found in DeFi dashboards.
-- Reference 1: Crypto Dashboard by Aurelien Salomon (clean table layouts). Source: Dribbble.
-- Reference 2: DevTool Dark Mode UI (code-centric typography). Source: Behance.
+
+![alt text](image.png)
 
 ## 5. Database Schema Design
 

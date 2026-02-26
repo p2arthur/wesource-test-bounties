@@ -55,6 +55,12 @@ model Bounty {
   claimedAt     DateTime?
   claimerPR     String?   @map("claimer_pull_request")
 
+  // Oracle tracking fields
+  processedEventId BigInt?   @map("processed_event_id") // GitHub event ID to prevent double processing
+  lastCheckedAt    DateTime? @map("last_checked_at") // For If-Modified-Since header
+  stateReason      String?   @map("state_reason") // completed, not_planned, etc.
+  closedByCommitId String?   @map("closed_by_commit_id") // Commit SHA that closed the issue
+
   @@index([issueNumber])
   @@index([status])
 }
@@ -73,4 +79,6 @@ enum BountyStatus {
   OPEN
   READY_FOR_CLAIM
   CLAIMED
+  CANCELLED // Issue closed as not_planned
+  REFUNDABLE // Issue cancelled, funds can be refunded
 }

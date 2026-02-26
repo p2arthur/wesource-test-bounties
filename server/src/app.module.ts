@@ -7,9 +7,10 @@ import { ProjectsModule } from './projects/projects.module';
 import { BountiesModule } from './bounties/bounties.module';
 import { AlgorandModule } from './algorand/algorand.module';
 import { SeedModule } from './seed/seed.module';
+import { OracleModule } from './oracle/oracle.module';
 
 @Module({
-  imports: [PrismaModule, GithubModule, ProjectsModule, BountiesModule, AlgorandModule, SeedModule],
+  imports: [PrismaModule, GithubModule, ProjectsModule, BountiesModule, AlgorandModule, SeedModule, OracleModule],
   controllers: [AppController],
   providers: [AppService],
 })

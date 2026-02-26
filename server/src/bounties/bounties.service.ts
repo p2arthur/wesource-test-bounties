@@ -4,6 +4,7 @@ import { createHash } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { GithubService } from '../github/github.service';
 import { AlgorandService } from '../algorand/algorand.service';
+import { OracleService } from '../oracle/oracle.service';
 import { CreateBountyDto, ClaimBountyDto } from './dto';
 
 @Injectable()
@@ -17,6 +18,7 @@ export class BountiesService implements OnModuleInit {
     private readonly prisma: PrismaService,
     private readonly githubService: GithubService,
     private readonly algorandService: AlgorandService,
+    private readonly oracleService: OracleService,
   ) {}
 
   onModuleInit() {
@@ -25,8 +27,8 @@ export class BountiesService implements OnModuleInit {
   }
 
   private async runStartupCheck() {
-    this.logger.log('Running bounty status check on startup...');
-    await this.monitorOpenBounties();
+    this.logger.log('Running Oracle bounty validation on startup...');
+    await this.runOracleValidation();
   }
 
   async create(createBountyDto: CreateBountyDto) {
@@ -203,14 +205,35 @@ export class BountiesService implements OnModuleInit {
   }
 
   private scheduleMonitoring() {
-    // Run every 5 minutes instead of 15 for faster winner detection
+    // Run Oracle validation every 5 minutes for faster winner detection
     cron.schedule('*/5 * * * *', async () => {
-      await this.monitorOpenBounties();
+      await this.runOracleValidation();
       // Also sync from on-chain to catch any missed updates
       await this.syncFromChain();
     });
 
-    this.logger.log('Bounty monitor scheduled to run every 5 minutes.');
+    this.logger.log('Oracle validation scheduled to run every 5 minutes.');
+  }
+
+  /**
+   * Run Oracle validation with error handling
+   * This is the new validation method that uses the Oracle service
+   */
+  private async runOracleValidation() {
+    try {
+      const report = await this.oracleService.validateBounties();
+      this.logger.log(
+        `Oracle validation: ${report.bountiesChecked} checked, ${report.bountiesUpdated} updated ` +
+          `(${report.readyForClaim} ready, ${report.cancelled} cancelled, ${report.refundable} refundable)`,
+      );
+    } catch (error) {
+      if (error instanceof HttpException && error.getStatus() === 409) {
+        // Oracle already running, skip
+        return;
+      }
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Oracle validation failed: ${message}`);
+    }
   }
 
   async listByWinner(githubUsername: string) {
@@ -438,7 +461,7 @@ export class BountiesService implements OnModuleInit {
         for (const result of results) {
           if (result.status === 'rejected') {
             const error = result.reason;
-            if (error instanceof HttpException && error.getStatus() === HttpStatus.TOO_MANY_REQUESTS) {
+            if (error instanceof HttpException && error.getStatus() === 429) {
               this.logger.warn('GitHub rate limit hit. Stopping bounty checks for this cycle.');
               rateLimitHit = true;
               break;

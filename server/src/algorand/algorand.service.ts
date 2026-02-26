@@ -198,6 +198,8 @@ export class AlgorandService implements OnModuleInit {
         const bountyIdBytes = boxName.subarray(3, 11);
         const bountyId = bountyIdBytes.readBigUInt64BE(0);
 
+        console.log(`Fetching on-chain data for bounty ID ${bountyId}...`);
+
         // Fetch box contents
         const boxResponse = await this.algodClient.getApplicationBoxByName(Number(this.appId), boxName).do();
         const boxValue = Buffer.from(boxResponse.value);

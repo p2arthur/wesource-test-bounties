@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import AnimatedNumber from '../components/AnimatedNumber'
+import { FaUsers, FaStar, FaCodeBranch, FaCoins } from 'react-icons/fa'
 import { Link, useParams } from 'react-router-dom'
 import ConnectWalletModal from '../components/ConnectWalletModal'
 import CreateBountyModal from '../components/CreateBountyModal'
@@ -7,7 +9,7 @@ import VoteWidget from '../components/VoteWidget'
 import { useProjects } from '../contexts/ProjectContext'
 import { useUnifiedWallet } from '../hooks/useUnifiedWallet'
 import { Issue, Project } from '../interfaces/entities'
-import { createBounty, checkBountyExists, listBounties, Bounty } from '../services/api'
+import { Bounty, checkBountyExists, createBounty, listBounties } from '../services/api'
 import { createBountyOnChain } from '../services/bountyContract'
 
 export default function ProjectPage() {
@@ -130,6 +132,7 @@ export default function ProjectPage() {
       setError(null)
       try {
         const data = await getProjectById(Number(projectId))
+        console.log('Fetched project data:', data)
         setProject(data)
         if (!data) {
           setError('Project not found')
@@ -178,10 +181,31 @@ export default function ProjectPage() {
   // Calculate totals
   const totalStars = project.repositories.reduce((acc, repo) => acc + repo.stars, 0)
   const allContributors = project.repositories.flatMap((repo) => repo.contributors || [])
+  // Calculate total bounty value for this project (all repos, only OPEN bounties)
+  const totalBountyValue = bounties
+    .filter((b) => {
+      if (b.status !== 'OPEN') return false
+      return project.repositories.some((repo) => {
+        // Parse owner from repo.githubUrl
+        try {
+          const url = new URL(repo.githubUrl)
+          const [owner, name] = url.pathname.replace(/^\/+/, '').split('/')
+          return (
+            owner &&
+            name &&
+            owner.toLowerCase() === b.repoOwner.toLowerCase() &&
+            name.replace(/\.git$/, '').toLowerCase() === b.repoName.toLowerCase()
+          )
+        } catch {
+          return false
+        }
+      })
+    })
+    .reduce((sum, b) => sum + (b.amount || 0), 0)
 
   return (
-    <div className="min-h-screen p-4 md:p-8 lg:p-10">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="min-h-screen p-4">
+      <div className="mx-auto space-y-8">
         {/* Back Button */}
         <Link to="/" className="inline-flex items-center gap-2 text-black hover:underline font-medium">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -190,54 +214,72 @@ export default function ProjectPage() {
           Back to Projects
         </Link>
 
-        {/* Project Header */}
-        <div className="card p-6 space-y-4">
-          <div className="flex items-start justify-between gap-4">
-            <div className="space-y-2">
-              {project.category && <span className="badge">{project.category}</span>}
-              <h1 className="text-3xl font-bold text-black">{project.name}</h1>
+        {/* Project Summary Row */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 border-2 rounded-lg border-black border-b-4">
+          {/* Project Main Card */}
+          <div className="md:col-span-2 p-8 flex flex-col gap-6 justify-between">
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-2">
+                {project.category && <span className="badge">{project.category}</span>}
+                <h1 className="text-3xl font-bold text-black">{project.name}</h1>
+              </div>
+              <VoteWidget voteKey={`project:${project.id}`} size="md" />
             </div>
-            <VoteWidget voteKey={`project:${project.id}`} size="md" />
+            <p className="text-black leading-relaxed">{project.description || 'No description available'}</p>
+            {/* Repository Links */}
+            <div className="flex flex-wrap gap-4 pt-4 border-t-2 border-black">
+              {project.repositories.map((repo) => (
+                <a
+                  key={repo.id}
+                  href={repo.githubUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-2 text-black underline hover:no-underline"
+                >
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path
+                      fillRule="evenodd"
+                      d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  {repo.name}
+                  <span className="text-muted">⭐ {repo.stars.toLocaleString()}</span>
+                </a>
+              ))}
+            </div>
           </div>
-
-          <p className="text-black leading-relaxed">{project.description || 'No description available'}</p>
-
-          {/* Repository Links */}
-          <div className="flex flex-wrap gap-4 pt-4 border-t-2 border-black">
-            {project.repositories.map((repo) => (
-              <a
-                key={repo.id}
-                href={repo.githubUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-2 text-black underline hover:no-underline"
-              >
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path
-                    fillRule="evenodd"
-                    d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                {repo.name}
-                <span className="text-muted">⭐ {repo.stars.toLocaleString()}</span>
-              </a>
-            ))}
+          {/* Bounty Value Card */}
+          <div className="p-8 flex flex-col items-center justify-center bg-yellow-500 border-2 border-yellow-500">
+            <div className="text-lg font-semibold text-yellow-800 mb-2 flex items-center gap-2"><FaCoins className="text-2xl text-yellow-700" />Total Bounty Value</div>
+            <div className="flex items-center gap-2 text-5xl font-extrabold text-white mb-1">
+              <AnimatedNumber value={totalBountyValue} decimals={2} className="" />
+              <span className="text-2xl font-bold">ALGO</span>
+            </div>
+            <div className="text-sm text-yellow-700">across all open bounties</div>
           </div>
         </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-4">
+        {/* Stats Row */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="card p-4 text-center">
-            <div className="text-3xl font-bold text-black">{project.repositories.length}</div>
+            <div className="flex flex-col items-center">
+              <FaCodeBranch className="text-2xl text-blue-600 mb-1" />
+              <AnimatedNumber value={project.repositories.length} className="text-3xl font-bold text-black" />
+            </div>
             <div className="text-sm text-muted">Repositories</div>
           </div>
           <div className="card p-4 text-center">
-            <div className="text-3xl font-bold text-black">{totalStars.toLocaleString()}</div>
+            <div className="flex flex-col items-center">
+              <FaStar className="text-2xl text-yellow-300 mb-1" />
+              <AnimatedNumber value={totalStars} className="text-3xl font-bold text-black" />
+            </div>
             <div className="text-sm text-muted">Total Stars</div>
           </div>
           <div className="card p-4 text-center">
-            <div className="text-3xl font-bold text-black">{allContributors.length}</div>
+            <div className="flex flex-col items-center">
+              <FaUsers className="text-2xl text-green-600 mb-1" />
+              <AnimatedNumber value={allContributors.length} className="text-3xl font-bold text-black" />
+            </div>
             <div className="text-sm text-muted">Contributors</div>
           </div>
         </div>

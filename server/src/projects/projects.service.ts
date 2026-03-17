@@ -21,14 +21,11 @@ export class ProjectsService {
 
     // Validate all GitHub URLs before saving
     this.logger.log(`Validating ${repoUrls.length} repository URLs`);
-    
+
     for (const url of repoUrls) {
       const parsed = this.githubService.parseGithubUrl(url);
       if (!parsed) {
-        throw new HttpException(
-          `Invalid GitHub URL: ${url}. Expected format: https://github.com/owner/repo`,
-          HttpStatus.BAD_REQUEST,
-        );
+        throw new HttpException(`Invalid GitHub URL: ${url}. Expected format: https://github.com/owner/repo`, HttpStatus.BAD_REQUEST);
       }
     }
 
@@ -108,7 +105,7 @@ export class ProjectsService {
 
     // Fetch GitHub data for all repositories in parallel
     this.logger.log(`Fetching GitHub data for ${project.repositories.length} repositories`);
-    
+
     const enrichedRepos = await Promise.all(
       project.repositories.map(async (repo) => {
         try {
@@ -123,11 +120,18 @@ export class ProjectsService {
             issues: githubData.issues,
           };
         } catch (error) {
-          // If GitHub fetch fails, return basic info with error indicator
+          // If GitHub fetch fails, return basic info with defaults so the client
+          // always receives a consistent shape (name, stars, etc.)
           this.logger.warn(`Failed to fetch GitHub data for ${repo.githubUrl}: ${error.message}`);
+          const fallbackName = repo.githubUrl.split('/').filter(Boolean).pop() || 'unknown';
           return {
             id: repo.id,
             githubUrl: repo.githubUrl,
+            name: fallbackName,
+            description: null,
+            stars: 0,
+            contributors: [],
+            issues: [],
             error: `Failed to fetch data: ${error.message}`,
           };
         }

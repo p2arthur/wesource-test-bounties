@@ -28,6 +28,10 @@ export class BountiesController {
     status: 401,
     description: 'GitHub authentication failed or missing token',
   })
+  @ApiResponse({
+    status: 402,
+    description: 'Payment required – send an X-PAYMENT header with a valid Algorand USDC payment',
+  })
   create(@Body() createBountyDto: CreateBountyDto) {
     return this.bountiesService.create(createBountyDto);
   }

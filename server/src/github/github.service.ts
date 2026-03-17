@@ -319,21 +319,42 @@ export class GithubService {
     }
 
     const { owner, repo } = parsed;
-    const headers = this.getHeaders();
+    let headers = this.getHeaders();
 
-    try {
-      // Fetch repository metadata, contributors, and issues in parallel
+    const fetchAll = async (h: Record<string, string>) => {
       const [repoResponse, contributorsResponse, issuesResponse] = await Promise.all([
-        axios.get(`${this.baseUrl}/repos/${owner}/${repo}`, { headers }),
+        axios.get(`${this.baseUrl}/repos/${owner}/${repo}`, { headers: h }),
         axios.get(`${this.baseUrl}/repos/${owner}/${repo}/contributors`, {
-          headers,
+          headers: h,
           params: { per_page: 10 },
         }),
         axios.get(`${this.baseUrl}/repos/${owner}/${repo}/issues`, {
-          headers,
+          headers: h,
           params: { state: 'all', per_page: 30 },
         }),
       ]);
+      return { repoResponse, contributorsResponse, issuesResponse };
+    };
+
+    try {
+      let result;
+      try {
+        // Fetch repository metadata, contributors, and issues in parallel
+        result = await fetchAll(headers);
+      } catch (firstError) {
+        // If the request failed with 401 and we had a token, retry without it
+        const axiosErr = firstError as AxiosError;
+        if (axiosErr.response?.status === 401 && headers['Authorization']) {
+          this.logger.warn(`GitHub token appears invalid (401). Retrying without authentication for ${githubUrl}`);
+          const { Authorization: _, ...headersWithoutAuth } = headers;
+          headers = headersWithoutAuth;
+          result = await fetchAll(headers);
+        } else {
+          throw firstError;
+        }
+      }
+
+      const { repoResponse, contributorsResponse, issuesResponse } = result;
 
       const repoData = repoResponse.data;
       const contributorsData = contributorsResponse.data;

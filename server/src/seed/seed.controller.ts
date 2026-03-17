@@ -1,6 +1,8 @@
 import { Controller, Post, Get, Logger } from '@nestjs/common';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { SeedService, SEED_PROJECTS, KNOWN_BOUNTIES } from './seed.service';
 
+@ApiTags('Seed')
 @Controller('seed')
 export class SeedController {
   private readonly logger = new Logger(SeedController.name);
@@ -12,6 +14,8 @@ export class SeedController {
    * Returns the current seed configuration and database stats.
    */
   @Get('status')
+  @ApiOperation({ summary: 'Seed status', description: 'Returns the current seed configuration and a list of projects/bounties that will be seeded.' })
+  @ApiResponse({ status: 200, description: 'Seed configuration' })
   async getStatus() {
     return {
       seedProjects: SEED_PROJECTS.map((p) => ({
@@ -29,6 +33,8 @@ export class SeedController {
    * Seeds the database with predefined projects.
    */
   @Post('projects')
+  @ApiOperation({ summary: 'Seed projects', description: 'Populates the database with predefined algorandfoundation projects. Safe to call multiple times — skips existing entries.' })
+  @ApiResponse({ status: 201, description: 'Projects seeded' })
   async seedProjects() {
     this.logger.log('Seeding projects...');
     const result = await this.seedService.seedProjects();
@@ -44,6 +50,8 @@ export class SeedController {
    * Seeds known bounties from the predefined list.
    */
   @Post('bounties')
+  @ApiOperation({ summary: 'Seed bounties', description: 'Seeds known bounties from the predefined list.' })
+  @ApiResponse({ status: 201, description: 'Bounties seeded' })
   async seedBounties() {
     this.logger.log('Seeding known bounties...');
     const result = await this.seedService.seedKnownBounties();
@@ -59,6 +67,8 @@ export class SeedController {
    * Syncs bounties from on-chain state.
    */
   @Post('sync-onchain')
+  @ApiOperation({ summary: 'Sync from on-chain', description: 'Syncs bounties from the Algorand smart contract box state into the database.' })
+  @ApiResponse({ status: 200, description: 'Sync report' })
   async syncFromOnChain() {
     this.logger.log('Syncing from on-chain...');
     const result = await this.seedService.syncFromOnChain();
@@ -74,6 +84,8 @@ export class SeedController {
    * Enriches bounties with GitHub data.
    */
   @Post('enrich-github')
+  @ApiOperation({ summary: 'Enrich from GitHub', description: 'Enriches seeded bounties with live GitHub data (issue title, state, author).' })
+  @ApiResponse({ status: 200, description: 'Enrichment report' })
   async enrichFromGitHub() {
     this.logger.log('Enriching from GitHub...');
     const result = await this.seedService.enrichFromGitHub();
@@ -89,6 +101,8 @@ export class SeedController {
    * Runs the full sync: seeds projects, syncs from on-chain, enriches from GitHub.
    */
   @Post('sync')
+  @ApiOperation({ summary: 'Full sync', description: 'Runs the full pipeline: seed projects → sync on-chain state → enrich from GitHub. Use this for a complete demo reset.' })
+  @ApiResponse({ status: 200, description: 'Full sync report' })
   async fullSync() {
     this.logger.log('Running full sync...');
     const result = await this.seedService.fullSync();

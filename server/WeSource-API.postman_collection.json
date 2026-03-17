@@ -1,0 +1,321 @@
+{
+  "info": {
+    "name": "WeSource API",
+    "description": "WeSource — Open Source Bounty Marketplace. Backend API for managing projects, bounties, oracle validation, and demo seeding.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "wesource-api-v1"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Projects",
+      "description": "CRUD operations for open source projects.",
+      "item": [
+        {
+          "name": "List All Projects",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/projects",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects"]
+            },
+            "description": "Returns a list of all projects with their associated repositories."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Project",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"AlgoKit Utils TypeScript\",\n  \"description\": \"A set of core Algorand utilities used by other AlgoKit libraries and dApps\",\n  \"category\": \"Infrastructure\",\n  \"creator\": \"algorandfoundation\",\n  \"repoUrls\": [\"https://github.com/algorandfoundation/algokit-utils-ts\"]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/projects",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects"]
+            },
+            "description": "Creates a new project. GitHub data is fetched dynamically when the project is retrieved — only metadata and repo URLs are stored."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Project by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/projects/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects", "1"]
+            },
+            "description": "Returns full project details including live GitHub data: stars, contributors, open issues."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Project",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/projects/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects", "1"]
+            },
+            "description": "Deletes a project and all its associated repositories and contributor links."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Bounties",
+      "description": "Bounty lifecycle: create, list, claim, and sync from on-chain state.",
+      "item": [
+        {
+          "name": "List All Bounties",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/bounties",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "bounties"]
+            },
+            "description": "Returns all bounty records."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Bounty",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"repoOwner\": \"algorandfoundation\",\n  \"repoName\": \"algokit-utils-ts\",\n  \"issueNumber\": 1,\n  \"amount\": 250,\n  \"creatorWallet\": \"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/bounties",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "bounties"]
+            },
+            "description": "Creates a new bounty for a GitHub issue. Returns 402 if payment header is missing."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Bounties by Winner",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/bounties/winner/octocat",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "bounties", "winner", "octocat"]
+            },
+            "description": "Returns all bounties won by a specific GitHub user (status READY_FOR_CLAIM or CLAIMED)."
+          },
+          "response": []
+        },
+        {
+          "name": "Claim Bounty",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bountyId\": 1,\n  \"githubId\": 12345678,\n  \"walletAddress\": \"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/bounties/claim",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "bounties", "claim"]
+            },
+            "description": "Allows the winner of a bounty to claim their reward. Verifies GitHub identity and transfers funds on-chain."
+          },
+          "response": []
+        },
+        {
+          "name": "Sync Bounties from On-Chain",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/bounties/sync",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "bounties", "sync"]
+            },
+            "description": "Reads all bounty boxes from the smart contract and updates the database to match on-chain state."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Oracle",
+      "description": "Oracle validation service — syncs marketplace database with GitHub issue states.",
+      "item": [
+        {
+          "name": "Oracle Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/oracle/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["oracle", "status"]
+            },
+            "description": "Health check for the Oracle Validation Service."
+          },
+          "response": []
+        },
+        {
+          "name": "Trigger Oracle Validation",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/oracle/validate",
+              "host": ["{{baseUrl}}"],
+              "path": ["oracle", "validate"]
+            },
+            "description": "Manually triggers Oracle validation — checks all open bounties against live GitHub issue state and updates statuses."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Seed (Demo Setup)",
+      "description": "Demo seeding endpoints — populate the database with real algorandfoundation repos and known bounties.",
+      "item": [
+        {
+          "name": "Seed Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/seed/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["seed", "status"]
+            },
+            "description": "Returns the current seed configuration and a list of projects/bounties that will be seeded."
+          },
+          "response": []
+        },
+        {
+          "name": "Seed Projects",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/seed/projects",
+              "host": ["{{baseUrl}}"],
+              "path": ["seed", "projects"]
+            },
+            "description": "Populates the database with predefined algorandfoundation projects. Safe to call multiple times — skips existing entries."
+          },
+          "response": []
+        },
+        {
+          "name": "Seed Bounties",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/seed/bounties",
+              "host": ["{{baseUrl}}"],
+              "path": ["seed", "bounties"]
+            },
+            "description": "Seeds known bounties from the predefined list."
+          },
+          "response": []
+        },
+        {
+          "name": "Sync From On-Chain",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/seed/sync-onchain",
+              "host": ["{{baseUrl}}"],
+              "path": ["seed", "sync-onchain"]
+            },
+            "description": "Syncs bounties from on-chain smart contract state into the database."
+          },
+          "response": []
+        },
+        {
+          "name": "Enrich from GitHub",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/seed/enrich-github",
+              "host": ["{{baseUrl}}"],
+              "path": ["seed", "enrich-github"]
+            },
+            "description": "Enriches seeded bounties with live GitHub data (issue title, state, author)."
+          },
+          "response": []
+        },
+        {
+          "name": "Full Sync (Projects + On-Chain + GitHub)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/seed/sync",
+              "host": ["{{baseUrl}}"],
+              "path": ["seed", "sync"]
+            },
+            "description": "Runs the full sync pipeline: seed projects → sync on-chain state → enrich from GitHub. Use this for a complete demo reset."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

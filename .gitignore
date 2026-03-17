@@ -6,6 +6,11 @@ __pycache__/
 # C extensions
 *.so
 
+.claude
+.github/skills
+CLAUDE.md
+.mcp.json
+
 # Distribution / packaging
 .Python
 build/

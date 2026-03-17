@@ -8,13 +8,16 @@ import LoadingPair from '../components/LoadingPair'
 import VoteWidget from '../components/VoteWidget'
 import { useProjects } from '../contexts/ProjectContext'
 import { useUnifiedWallet } from '../hooks/useUnifiedWallet'
+import { useX402Fetch } from '../hooks/useX402Fetch'
 import { Issue, Project } from '../interfaces/entities'
-import { Bounty, checkBountyExists, createBounty, listBounties } from '../services/api'
+import { Bounty, checkBountyExists, createBounty, listBounties, preflightBountyCreation } from '../services/api'
+import { X402PaymentRequirements } from '../services/api'
 import { createBountyOnChain } from '../services/bountyContract'
 
 export default function ProjectPage() {
   const { projectId } = useParams<{ projectId: string }>()
   const { getProjectById } = useProjects()
+  const x402Fetch = useX402Fetch()
   const [project, setProject] = useState<Project | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -70,7 +73,18 @@ export default function ProjectPage() {
     setSelectedRepoName('')
   }
 
-  const handleCreateBounty = async (issueNumber: number, amount: number, creatorWallet: string, repoOwner: string, repoName: string) => {
+  /**
+   * Phase 1: Create bounty on-chain + preflight the server to get x402 payment requirements.
+   * Returns the requirements so the modal can display them for user confirmation.
+   * Returns null when x402 middleware is disabled (bounty already created).
+   */
+  const handleInitBounty = async (
+    issueNumber: number,
+    amount: number,
+    creatorWallet: string,
+    repoOwner: string,
+    repoName: string,
+  ): Promise<X402PaymentRequirements | null> => {
     if (!repoOwner || !repoName) {
       throw new Error('Missing repository info for bounty creation.')
     }
@@ -109,14 +123,50 @@ export default function ProjectPage() {
     })
     console.log('On-chain bounty created:', onChainResult)
 
-    // Step 2: Register bounty with server
-    const created = await createBounty({
+    // Step 2: Preflight the server to get x402 payment requirements
+    const payload = {
       repoOwner,
       repoName,
       issueNumber: Math.trunc(issueNumber),
       amount,
       creatorWallet: creatorWallet.trim(),
-    })
+    }
+
+    const { requirements, alreadyCreated } = await preflightBountyCreation(payload)
+
+    if (alreadyCreated) {
+      // x402 middleware was not enabled — bounty already registered
+      console.log('Bounty registered with server (no x402):', alreadyCreated)
+      localStorage.setItem(`bountyKey:${alreadyCreated.id}`, alreadyCreated.bountyKey)
+      listBounties().then(setBounties).catch(console.error)
+      return null
+    }
+
+    console.log('x402 payment requirements:', requirements)
+    return requirements
+  }
+
+  /**
+   * Phase 2: Sign the x402 USDC payment and complete server registration.
+   * Called after the user reviews and confirms the x402 payment requirements.
+   */
+  const handleConfirmX402Payment = async (
+    issueNumber: number,
+    amount: number,
+    creatorWallet: string,
+    repoOwner: string,
+    repoName: string,
+  ): Promise<void> => {
+    const created = await createBounty(
+      {
+        repoOwner,
+        repoName,
+        issueNumber: Math.trunc(issueNumber),
+        amount,
+        creatorWallet: creatorWallet.trim(),
+      },
+      x402Fetch,
+    )
 
     console.log('Bounty registered with server:', created)
     localStorage.setItem(`bountyKey:${created.id}`, created.bountyKey)
@@ -244,14 +294,17 @@ export default function ProjectPage() {
                     />
                   </svg>
                   {repo.name}
-                  <span className="text-muted">⭐ {repo.stars.toLocaleString()}</span>
+                  <span className="text-muted">⭐ {(repo.stars ?? 0).toLocaleString()}</span>
                 </a>
               ))}
             </div>
           </div>
           {/* Bounty Value Card */}
           <div className="p-8 flex flex-col items-center justify-center bg-yellow-500 border-2 border-yellow-500">
-            <div className="text-lg font-semibold text-yellow-800 mb-2 flex items-center gap-2"><FaCoins className="text-2xl text-yellow-700" />Total Bounty Value</div>
+            <div className="text-lg font-semibold text-yellow-800 mb-2 flex items-center gap-2">
+              <FaCoins className="text-2xl text-yellow-700" />
+              Total Bounty Value
+            </div>
             <div className="flex items-center gap-2 text-5xl font-extrabold text-white mb-1">
               <AnimatedNumber value={totalBountyValue} decimals={2} className="" />
               <span className="text-2xl font-bold">ALGO</span>
@@ -303,7 +356,7 @@ export default function ProjectPage() {
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
                     </svg>
-                    {repo.stars.toLocaleString()}
+                    {(repo.stars ?? 0).toLocaleString()}
                   </span>
                 </div>
                 {repo.description && <p className="text-sm text-muted">{repo.description}</p>}
@@ -428,7 +481,8 @@ export default function ProjectPage() {
           repoName={selectedRepoName}
           projectName={project.name}
           onClose={closeBountyModal}
-          onSubmit={handleCreateBounty}
+          onInitBounty={handleInitBounty}
+          onConfirmPayment={handleConfirmX402Payment}
         />
       )}
 

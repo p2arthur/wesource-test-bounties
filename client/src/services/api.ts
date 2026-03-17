@@ -75,6 +75,87 @@ export interface CreateBountyPayload {
 export type CreateBountyResponse = Bounty
 export type ListBountiesResponse = Bounty[]
 
+/**
+ * Parsed x402 payment requirements returned by a 402 response.
+ */
+export interface X402PaymentAccept {
+  scheme: string
+  network: string
+  payTo: string
+  price: string
+  resource?: string
+  description?: string
+  maxAmountRequired?: string
+  asset?: string | number
+  extra?: Record<string, unknown>
+}
+
+export interface X402PaymentRequirements {
+  x402Version: number
+  accepts: X402PaymentAccept[]
+}
+
+/**
+ * Sends a plain fetch (no x402 handling) to trigger a 402 response and extract
+ * the payment requirements the server demands.
+ *
+ * Returns `null` when the endpoint does NOT require payment (e.g. middleware is
+ * disabled) — in that case the bounty was already created.
+ */
+export async function preflightBountyCreation(
+  payload: CreateBountyPayload,
+): Promise<{ requirements: X402PaymentRequirements | null; alreadyCreated: CreateBountyResponse | null }> {
+  const response = await fetch(`${API_BASE_URL}/api/bounties`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+
+  // If the server returns 201, x402 middleware was not active — bounty was created
+  if (response.status === 201) {
+    const bounty: CreateBountyResponse = await response.json()
+    return { requirements: null, alreadyCreated: bounty }
+  }
+
+  if (response.status === 402) {
+    // Try V2 header first
+    const headerValue = response.headers.get('X-PAYMENT-REQUIRED')
+    if (headerValue) {
+      try {
+        const requirements: X402PaymentRequirements = JSON.parse(headerValue)
+        return { requirements, alreadyCreated: null }
+      } catch {
+        // Fall through to body parsing
+      }
+    }
+
+    // Try response body
+    try {
+      const body = await response.json()
+      if (body && (body.x402Version || body.accepts)) {
+        return { requirements: body as X402PaymentRequirements, alreadyCreated: null }
+      }
+    } catch {
+      // Unable to parse — return generic info from what we know
+    }
+
+    // Fallback: we know it's 402 but can't parse requirements
+    return {
+      requirements: {
+        x402Version: 0,
+        accepts: [],
+      },
+      alreadyCreated: null,
+    }
+  }
+
+  // Unexpected status — throw
+  const error = await response.json().catch(() => ({ message: `Unexpected status ${response.status}` }))
+  throw new Error(error.message || `Failed to preflight bounty creation (status ${response.status})`)
+}
+
 // API functions
 export async function fetchProjects(): Promise<ProjectsResponse> {
   const response = await fetch(`${API_BASE_URL}/projects`)
@@ -123,7 +204,7 @@ export async function deleteProject(id: number): Promise<void> {
   }
 }
 
-export async function createBounty(payload: CreateBountyPayload): Promise<CreateBountyResponse> {
+export async function createBounty(payload: CreateBountyPayload, customFetch?: typeof fetch): Promise<CreateBountyResponse> {
   if (!payload.repoOwner || !payload.repoName || !payload.creatorWallet) {
     throw new Error('Missing required bounty fields')
   }
@@ -134,7 +215,12 @@ export async function createBounty(payload: CreateBountyPayload): Promise<Create
     throw new Error('Amount must be a positive number')
   }
 
-  const response = await fetch(`${API_BASE_URL}/api/bounties`, {
+  // Use the x402-aware fetch when provided – it automatically handles
+  // 402 Payment Required responses by signing an Algorand USDC payment
+  // and retrying the request with the X-PAYMENT header.
+  const fetchFn = customFetch ?? fetch
+
+  const response = await fetchFn(`${API_BASE_URL}/api/bounties`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

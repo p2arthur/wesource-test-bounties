@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useUnifiedWallet } from '../hooks/useUnifiedWallet'
 import { listWonBounties, WonBounty } from '../services/api'
+import { formatAlgoAmount } from '../utils/amount'
 import LoadingPair from './LoadingPair'
 
 export default function WonBountiesSidebar() {
@@ -116,7 +117,7 @@ export default function WonBountiesSidebar() {
                         <span className="text-sm font-medium text-black truncate">
                           {bounty.repoOwner}/{bounty.repoName} #{bounty.issueNumber}
                         </span>
-                        <span className="text-sm font-bold text-yellow-700">{bounty.amount} ALGO</span>
+                        <span className="text-sm font-bold text-yellow-700">{formatAlgoAmount(bounty.amount)}</span>
                       </div>
                     </Link>
                   </li>
@@ -140,7 +141,7 @@ export default function WonBountiesSidebar() {
                         <span className="text-xs text-muted truncate">
                           {bounty.repoOwner}/{bounty.repoName} #{bounty.issueNumber}
                         </span>
-                        <span className="text-xs font-medium text-green-600">{bounty.amount} ALGO</span>
+                        <span className="text-xs font-medium text-green-600">{formatAlgoAmount(bounty.amount)}</span>
                       </div>
                     </Link>
                   </li>

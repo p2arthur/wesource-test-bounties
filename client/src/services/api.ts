@@ -265,18 +265,67 @@ export async function listWonBounties(githubUsername: string): Promise<WonBounty
   return response.json()
 }
 
-export async function refundBounty(bountyId: number): Promise<{ txId: string }> {
-  const response = await fetch(`${API_BASE_URL}/api/bounties/${bountyId}/refund`, {
+/**
+ * Fetch a single bounty by ID with full details including winner info
+ */
+export async function getBountyById(id: number, headers?: HeadersInit): Promise<Bounty> {
+  const response = await fetch(`${API_BASE_URL}/api/bounties/${id}`, {
+    headers: {
+      'Content-Type': 'application/json',
+      ...headers,
+    },
+  });
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error('Bounty not found');
+    }
+    throw new Error('Failed to fetch bounty');
+  }
+
+  return response.json();
+}
+
+/**
+ * Claim a bounty (requires authenticated wallet)
+ */
+export async function claimBounty(bountyId: number, headers?: HeadersInit): Promise<{ txId: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/bounties/claim`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      ...headers,
     },
-  })
+    body: JSON.stringify({ bountyId }),
+  });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Failed to refund bounty' }))
-    throw new Error(error.message || `Failed to refund bounty (status ${response.status})`)
+    const error = await response.json().catch(() => ({ message: 'Failed to claim bounty' }));
+    throw new Error(error.message || `Failed to claim bounty (status ${response.status})`);
   }
 
-  return response.json()
+  return response.json();
 }
+
+/**
+ * Link wallet to GitHub account for bounty claiming
+ */
+export async function linkWallet(githubUsername: string, githubId: number, headers?: HeadersInit): Promise<{ message: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/bounties/link-wallet`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...headers,
+    },
+    body: JSON.stringify({ githubUsername, githubId }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Failed to link wallet' }));
+    throw new Error(error.message || `Failed to link wallet (status ${response.status})`);
+  }
+
+  return response.json();
+}
+
+

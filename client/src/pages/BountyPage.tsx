@@ -6,14 +6,11 @@ import LoadingPair from '../components/LoadingPair'
 import { useProjects } from '../contexts/ProjectContext'
 import { useUnifiedWallet } from '../hooks/useUnifiedWallet'
 import { Bounty, Project } from '../interfaces/entities'
-import { listBounties, refundBounty } from '../services/api'
-
-/**
- * Convert microAlgos to ALGO (1 ALGO = 1,000,000 microAlgos)
- */
-const microAlgosToAlgo = (microAlgos: number): number => {
-  return microAlgos / 1_000_000
-}
+import { listBounties, getBountyById, claimBounty } from '../services/api'
+import { formatAlgoAmount } from '../utils/amount'
+import WalletLinkModal from '../components/WalletLinkModal'
+import { useSnackbar } from 'notistack'
+import { useAuth } from '../hooks/useAuth'
 
 export default function BountyPage() {
   const { bountyId } = useParams<{ bountyId: string }>()
@@ -22,6 +19,10 @@ export default function BountyPage() {
   const [bounties, setBounties] = useState<Bounty[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isClaiming, setIsClaiming] = useState(false)
+  const [showWalletLinkModal, setShowWalletLinkModal] = useState(false)
+  const { enqueueSnackbar } = useSnackbar()
+  const { getAuth, handleAuthError } = useAuth()
 
   useEffect(() => {
     let isActive = true
@@ -85,25 +86,35 @@ export default function BountyPage() {
     return projectRepoMap.get(key) || null
   }, [bounty, projectRepoMap])
 
-  const [isRefunding, setIsRefunding] = useState(false)
-  const [refundError, setRefundError] = useState<string | null>(null)
-
-  const handleRefund = async () => {
+  const handleClaim = async () => {
     if (!bounty) return
 
-    setIsRefunding(true)
-    setRefundError(null)
-
+    setIsClaiming(true)
     try {
-      await refundBounty(bounty.id)
-      // Reload bounties to update status
-      const data = await listBounties()
-      setBounties(data)
-    } catch (err) {
-      setRefundError(err instanceof Error ? err.message : 'Failed to refund bounty')
+      const headers = await getAuth()
+      const result = await claimBounty(bounty.id, headers)
+      enqueueSnackbar(`Bounty claimed! Transaction: ${result.txId}`, { variant: 'success' })
+
+      // Refresh bounty data
+      const updatedBounty = await getBountyById(bounty.id)
+      setBounties(prev => prev.map(b => b.id === bounty.id ? updatedBounty : b))
+    } catch (error) {
+      handleAuthError(error)
     } finally {
-      setIsRefunding(false)
+      setIsClaiming(false)
     }
+  }
+
+  const handleLinkWallet = () => {
+    setShowWalletLinkModal(true)
+  }
+
+  const handleWalletLinkSuccess = async () => {
+    if (!bounty) return
+
+    // Refresh bounty data after linking
+    const updatedBounty = await getBountyById(bounty.id)
+    setBounties(prev => prev.map(b => b.id === bounty.id ? updatedBounty : b))
   }
 
   if (loading || projectsLoading) {
@@ -126,7 +137,7 @@ export default function BountyPage() {
             <h1 className="text-2xl font-bold text-black">Unable to load bounty</h1>
             <p className="text-muted">{error || projectsError}</p>
             <Link to="/" className="btn-primary inline-block">
-              Back to Home
+              Go Home
             </Link>
           </div>
         </div>
@@ -142,7 +153,7 @@ export default function BountyPage() {
             <h1 className="text-2xl font-bold text-black">Bounty Not Found</h1>
             <p className="text-muted">The bounty you're looking for doesn't exist.</p>
             <Link to="/" className="btn-primary inline-block">
-              Back to Home
+              Browse Bounties
             </Link>
           </div>
         </div>
@@ -150,87 +161,53 @@ export default function BountyPage() {
     )
   }
 
-  const isOpen = bounty.status === 'OPEN'
-  const isCreator = activeAddress === bounty.creatorWallet
-  const bountyTitle = `${bounty.repoOwner}/${bounty.repoName} #${bounty.issueNumber}`
-
   return (
     <div className="min-h-screen p-4 md:p-8 lg:p-10">
-      <div className="max-w-4xl mx-auto space-y-6">
-        {/* Back Button */}
-        <Link to="/" className="inline-flex items-center gap-2 text-black hover:underline font-medium">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          Back to Bounties
-        </Link>
-
-        {/* Bounty Header */}
-        <div className="card p-6 space-y-4">
-          <div className="flex items-start justify-between gap-4">
-            <div className="space-y-2">
-              <span className={`badge ${isOpen ? 'badge-success' : ''}`}>{bounty.status}</span>
-              <h1 className="text-2xl font-bold text-black">{bountyTitle}</h1>
-            </div>
-            <div className="text-right flex flex-col items-end">
-              <div className="flex items-center gap-2 text-3xl font-bold text-black">
-                <FaCoins className="text-yellow-600" />
-                <AnimatedNumber value={microAlgosToAlgo(bounty.amount)} decimals={2} />
-              </div>
-              <div className="text-sm text-muted">ALGO</div>
-            </div>
-          </div>
-
-          {/* Project Link */}
-          {project && (
-            <Link
-              to={`/project/${project.id}`}
-              className="flex items-center gap-3 p-3 border-2 border-black hover:bg-gray-50 transition-colors"
-            >
-              {project.logo && <img src={project.logo} alt={project.name} className="h-10 w-10 object-contain border-2 border-black p-1" />}
-              <div>
-                <div className="text-sm text-muted">Project</div>
-                <div className="font-bold text-black">{project.name}</div>
-              </div>
-              <FaChevronRight className="w-5 h-5 ml-auto text-black" />
-            </Link>
-          )}
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <Link to="/" className="text-muted hover:text-black inline-flex items-center gap-2 mb-4">
+            <FaChevronRight className="rotate-180 w-4 h-4" />
+            Back to Bounties
+          </Link>
+          <h1 className="text-3xl md:text-4xl font-bold text-black">{bounty.repoName}</h1>
+          <p className="text-muted text-lg mt-2">
+            Issue #{bounty.issueNumber}: {bounty.issueUrl ? <a href={bounty.issueUrl} target="_blank" rel="noreferrer" className="underline hover:no-underline">{bounty.issueUrl}</a> : 'Link not available'}
+          </p>
         </div>
 
-        {/* Bounty Details */}
-        <div className="card p-6 space-y-6">
-          <div>
-            <h2 className="text-lg font-bold text-black mb-3">Description</h2>
-            <p className="text-black leading-relaxed">
-              This bounty is for GitHub issue {bountyTitle}. Contributors should review the issue for detailed requirements and
-              specifications.
-            </p>
+        {/* Bounty Card */}
+        <div className="card p-8 space-y-6 mb-8">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+              <div className="flex items-center gap-2 text-muted">
+                <FaCoins className="w-5 h-5" />
+                <span>Bounty Reward</span>
+              </div>
+              <h2 className="text-4xl font-bold text-black mt-2">
+                {formatAlgoAmount(bounty.amount)}
+              </h2>
+            </div>
+            <div className="flex items-center gap-2 px-4 py-2 border-2 border-black rounded-full">
+              <div className={`w-3 h-3 rounded-full ${bounty.status === 'OPEN' ? 'bg-yellow-500' : bounty.status === 'READY_FOR_CLAIM' ? 'bg-blue-500' : 'bg-green-500'}`}></div>
+              <span className="font-medium text-black">{bounty.status}</span>
+            </div>
           </div>
 
-          <div className="border-t-2 border-black pt-4 space-y-4">
-            <h3 className="text-lg font-bold text-black">Requirements</h3>
-            <ul className="space-y-2 text-black">
-              <li className="flex items-start gap-2">
-                <FaCheckCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-green-600" />
-                Code must follow the project's existing conventions
+          <div className="border-t border-gray-200 pt-6">
+            <h3 className="text-lg font-semibold text-black mb-4">How to win this bounty</h3>
+            <ul className="space-y-2 text-muted">
+              <li className="flex items-center gap-2">
+                <FaCheckCircle className="text-green-500" />
+                Complete the issue on GitHub
               </li>
-              <li className="flex items-start gap-2">
-                <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Include tests for new functionality
+              <li className="flex items-center gap-2">
+                <FaCheckCircle className="text-green-500" />
+                Create a pull request referencing this issue
               </li>
-              <li className="flex items-start gap-2">
-                <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Update documentation if applicable
-              </li>
-              <li className="flex items-start gap-2">
-                <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Submit a PR referencing this bounty
+              <li className="flex items-center gap-2">
+                <FaCheckCircle className="text-green-500" />
+                Wait for the bounty to be marked as READY_FOR_CLAIM
               </li>
             </ul>
           </div>
@@ -253,38 +230,60 @@ export default function BountyPage() {
               </a>
             )}
 
-            {bounty.status === 'REFUNDABLE' && isCreator ? (
-              <div className="border-2 border-yellow-600 bg-yellow-50 p-4 flex-1 min-w-[180px] text-center" style={{ maxWidth: 320 }}>
-                <h3 className="font-bold mb-2">Bounty Refundable</h3>
-                <p className="text-sm mb-3">This issue was closed without a solution. You can reclaim your funds.</p>
-                <button
-                  onClick={handleRefund}
-                  disabled={isRefunding}
-                  className="btn-primary w-full py-2 px-4 border-2 border-black hover:bg-yellow-100 disabled:opacity-50"
-                >
-                  {isRefunding ? 'Refunding...' : `Reclaim ${microAlgosToAlgo(bounty.amount).toFixed(2)} ALGO`}
-                </button>
-                {refundError && <p className="text-red-600 text-xs mt-2">{refundError}</p>}
-              </div>
-            ) : isOpen && isConnected ? (
-              <button
-                className="flex-1 min-w-[180px] btn-primary flex items-center justify-center gap-3 py-4 text-lg font-semibold shadow-lg border-2 border-black hover:bg-green-100 transition-all"
-                style={{ maxWidth: 320 }}
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                <span>Claim Bounty</span>
-              </button>
-            ) : isOpen ? (
-              <div className="flex-1 min-w-[180px] text-sm text-muted border-2 border-black p-3 text-center" style={{ maxWidth: 320 }}>
-                Connect your account to claim this bounty
-              </div>
-            ) : (
-              <div className="flex-1 min-w-[180px] text-sm text-muted border-2 border-black p-3 text-center" style={{ maxWidth: 320 }}>
-                This bounty has been claimed
-              </div>
-            )}
+            {/* Claim Button Logic */}
+            {(() => {
+              const isWinner = activeAddress === bounty.winner?.wallet
+              const hasWinnerWallet = !!bounty.winner?.wallet
+
+              if (bounty.status === 'READY_FOR_CLAIM' && isConnected && isWinner && hasWinnerWallet) {
+                return (
+                  <button
+                    onClick={handleClaim}
+                    disabled={isClaiming}
+                    className="flex-1 min-w-[180px] btn-primary flex items-center justify-center gap-3 py-4 text-lg font-semibold shadow-lg border-2 border-black hover:bg-green-100 transition-all"
+                    style={{ maxWidth: 320 }}
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    <span>Claim Bounty — {formatAlgoAmount(bounty.amount)}</span>
+                    {isClaiming && <span className="animate-spin ml-2">⏳</span>}
+                  </button>
+                )
+              } else if (bounty.status === 'READY_FOR_CLAIM' && bounty.winner && !hasWinnerWallet) {
+                return (
+                  <button
+                    onClick={handleLinkWallet}
+                    className="flex-1 min-w-[180px] btn-primary flex items-center justify-center gap-3 py-4 text-lg font-semibold shadow-lg border-2 border-black hover:bg-blue-100 transition-all"
+                    style={{ maxWidth: 320 }}
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                    </svg>
+                    <span>Link Wallet to Claim {formatAlgoAmount(bounty.amount)}</span>
+                  </button>
+                )
+              } else if (bounty.status === 'READY_FOR_CLAIM' && bounty.winner?.wallet && !isWinner) {
+                return (
+                  <div className="flex-1 min-w-[180px] text-sm text-gray-600 border-2 border-black p-3 text-center" style={{ maxWidth: 320 }}>
+                    This bounty has been awarded to <strong>{bounty.winner.username || 'another user'}</strong>
+                  </div>
+                )
+              } else if (bounty.status === 'OPEN') {
+                return (
+                  <div className="flex-1 min-w-[180px] text-sm text-gray-600 border-2 border-black p-3 text-center" style={{ maxWidth: 320 }}>
+                    Solve this issue on GitHub to win this bounty
+                  </div>
+                )
+              } else if (bounty.status === 'CLAIMED') {
+                return (
+                  <div className="flex-1 min-w-[180px] text-sm text-green-600 border-2 border-green-600 p-3 text-center" style={{ maxWidth: 320 }}>
+                    ✓ This bounty has been claimed
+                  </div>
+                )
+              }
+              return null
+            })()}
           </div>
         </div>
 
@@ -309,6 +308,16 @@ export default function BountyPage() {
               </svg>
             </Link>
           </div>
+        )}
+
+        {/* Wallet Link Modal */}
+        {showWalletLinkModal && (
+          <WalletLinkModal
+            isOpen={showWalletLinkModal}
+            onClose={() => setShowWalletLinkModal(false)}
+            onSuccess={handleWalletLinkSuccess}
+            bountyId={bounty.id}
+          />
         )}
       </div>
     </div>

@@ -1,94 +1,119 @@
-# Frontend Dev — UI Overhaul Plan
+# Frontend Dev — Functional MVP Plan
 
 **Last Updated:** 2026-03-29
-**Scope:** R1 "Night & Day" — Design System + Full Visual Restyle
-**Source:** `docs/wesource-ui-overhaul-spec.md` (full spec)
+**Scope:** Phases 3–7 — Auth, Claim, Refund, Profiles, Search
+**Status:** UI overhaul complete. Functional work starts now.
 
 ---
 
-## Execution Order
+## Phase 3: Authentication UI
 
-### Stage 1: Foundation ✅
-- [x] `npx shadcn-ui@latest init` (dark base, CSS variables, default style)
-- [x] Add Inter font to `index.html`
-- [x] Update `tailwind.config.cjs` with dark theme extend colors
-- [x] Create `src/styles/globals.css` with CSS variables from spec
-- [x] `npm install react-icons`
-- [x] Test: `npm run build` passes
-- [x] Commit
+### Task 3.1: Create `useAuth` Hook
+- [ ] Create `src/hooks/useAuth.ts`
+- [ ] Flow: wallet connected → sign login message → send to backend → store JWT in memory
+- [ ] Provide: `isAuthenticated`, `token`, `login`, `logout`
+- [ ] Commit
 
-### Stage 2: shadcn Components ✅
-- [x] Initialize: Button, Card, Dialog, Input, Badge, Tabs, Select, Tooltip, DropdownMenu, Avatar
-- [x] All go in `src/components/ui/`
-- [x] Test: `npm run build` passes
-- [x] Commit
+### Task 3.2: Update WalletMenu with GitHub Linking
+- [ ] Update `WalletMenu.tsx` — after wallet connects, show "Connect GitHub" step
+- [ ] Input for GitHub username → sign → send to backend → show linked status
+- [ ] Commit
 
-### Stage 3: Layout & Shell ✅
-- [x] Restyle HeaderBar — dark bg, accent logo, shadcn buttons, FiCreditCard icon
-- [x] Restyle Layout — dark bg base, min-h-screen
-- [x] Restyle Footer — dark bg, muted text, accent links
-- [x] Test: `npm run build` passes
-- [x] Commit
-
-### Stage 4: Pages ✅
-- [x] Restyle Home — shadcn Tabs, dark cards, category filter
-- [x] Restyle ProjectPage + ProjectDetail
-- [x] Restyle BountyPage
-- [x] Restyle ProfilePage
-- [x] Test: `npm run build` passes
-- [x] Commit
-
-### Stage 5: Custom Components ✅
-- [x] Restyle BountyCard — dark surface, accent amount, shadcn Badge
-- [x] Restyle ProjectCard — dark card, colored category
-- [x] Restyle VoteWidget — accent upvote
-- [x] Restyle LiveFeedWedge — dark elevated panel
-- [x] Restyle WonBountiesSidebar — dark panel, success colors
-- [x] Restyle WalletInterface — shadcn Card + Badge
-- [x] Restyle WalletMenu — shadcn Button + dark dropdown
-- [x] Restyle AnimatedNumber — keep animation, add accent
-- [x] Replace Tooltip with shadcn Tooltip
-- [x] Test: `npm run build` passes
-- [x] Commit
-
-### Stage 6: Modals ✅
-- [x] Restyle ConnectWalletModal — shadcn Dialog + Card items
-- [x] Restyle WalletLinkModal — shadcn Dialog + Input
-- [x] Restyle CreateBountyModal — shadcn Dialog + form
-- [x] Restyle SubmitProjectForm — shadcn form components
-- [x] Restyle or remove Modal base component
-- [x] Test: `npm run build` passes
-- [x] Commit
-
-### Stage 7: Cleanup ✅
-- [x] Remove Pixelify Sans import from globals.css
-- [x] Delete unused CSS (main.css deleted)
-- [x] Clean up imports, remove dead code
-- [x] Test: `npm run build` passes
-- [x] Final commit
+### Task 3.3: Attach Auth Headers to API Calls
+- [ ] Update `api.ts` — add `Authorization: Bearer {token}` to POST/PUT/DELETE
+- [ ] Handle 401 → redirect to login
+- [ ] GET requests stay unauthenticated
+- [ ] Commit
 
 ---
 
-## Design Tokens (Quick Reference)
+## Phase 4: Claim Flow UI
 
-**Accent:** `#e8634a` (reddish-orange)
-**Dark bg:** `#0d1117` → `#161b22` → `#1c2128` → `#21262d`
-**Border:** `#30363d`
-**Text primary:** `#e6edf3`
-**Text secondary:** `#8b949e`
-**Text muted:** `#484f58`
-**Success:** `#3fb950` | **Warning:** `#d29922` | **Danger:** `#f85149` | **Info:** `#58a6ff`
-**Font:** Inter + JetBrains Mono (for addresses)
-**Icons:** `react-icons/fi` (Feather)
-**Radius:** sm 4px, md 6px, lg 8px, xl 12px
+### Task 4.1: Fix Claim Button Logic
+- [ ] Open `BountyPage.tsx`
+- [ ] Replace claim button with correct conditional:
+  - OPEN → "Solve this issue on GitHub"
+  - READY_FOR_CLAIM + isWinner → "Claim Bounty" button
+  - READY_FOR_CLAIM + !isWinner → "Awarded to {winner}"
+  - CLAIMED → "Claimed"
+- [ ] Commit
+
+### Task 4.2: Add `claimBountyOnChain` Function
+- [ ] Add to `bountyContract.ts`:
+  ```ts
+  export async function claimBountyOnChain(params: {
+    repoOwner: string; repoName: string; issueNumber: number;
+    senderAddress: string; signer: TransactionSigner;
+  }): Promise<{ txId: string }>
+  ```
+- [ ] Use `SourceFactoryClient` `claim` method + box reference
+- [ ] Commit
+
+### Task 4.3: Connect Claim Button to Backend + On-Chain
+- [ ] Claim click → `POST /api/bounties/claim` (backend verifies auth + winner)
+- [ ] Backend approves → call `claimBountyOnChain` (on-chain)
+- [ ] Update UI → show "Claimed" status
+- [ ] Handle errors: not winner, not ready, tx failed
+- [ ] Commit
+
+---
+
+## Phase 5: Refund Flow UI
+
+### Task 5.1: Add Refund UI to BountyPage
+- [ ] Add to `BountyPage.tsx`:
+  - REFUNDABLE + isCreator → refund button + warning styling
+  - `handleRefund` → `POST /api/bounties/:id/refund`
+  - Update UI on success → REFUNDED status
+- [ ] Commit
+
+---
+
+## Phase 6: User Profiles
+
+### Task 6.1: Update ProfilePage with Real Data
+- [ ] Open `ProfilePage.tsx`
+- [ ] Replace hardcoded zeros with API calls:
+  ```ts
+  const [profile, bounties, wins] = await Promise.all([
+    fetchUser(walletAddress),
+    fetchUserBounties(walletAddress),
+    fetchUserWins(walletAddress),
+  ]);
+  ```
+- [ ] Show real counts
+- [ ] Commit
+
+---
+
+## Phase 7: Search, Pagination, Notifications
+
+### Task 7.1: Search Bar + Status Filter
+- [ ] Add search input + status dropdown to Home
+- [ ] Wire to `?search=&status=` query params
+- [ ] Debounce search (300ms)
+- [ ] Commit
+
+### Task 7.2: Pagination Controls
+- [ ] Add Previous/Next controls below lists
+- [ ] Read `page`/`limit` from URL params
+- [ ] Update API calls with `?page=&limit=`
+- [ ] Commit
+
+### Task 7.3: Notification Bell
+- [ ] Add bell icon to HeaderBar
+- [ ] Dropdown with notifications from `GET /notifications`
+- [ ] Unread count badge
+- [ ] Click → navigate to bounty, mark as read
+- [ ] Commit
 
 ---
 
 ## Completion Criteria
 
-- [x] All 7 stages done
-- [x] `npm run build` passes
-- [x] Dark theme applied everywhere
-- [x] Pixelify Sans completely removed
-- [x] No broken functionality (wallet, bounties, projects all work)
-- [x] MEMORY.md updated with all decisions
+- [ ] All tasks across Phases 3–7 done
+- [ ] `npm run build` passes
+- [ ] Browser testing: all flows end-to-end
+- [ ] Loading, error, empty states handled everywhere
+- [ ] MEMORY.md updated with decisions
+- [ ] Report done

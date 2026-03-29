@@ -1,193 +1,115 @@
-# Frontend Dev Agent — WeSource React UI
+# CLAUDE.md — Frontend Dev (Functional MVP)
 
-**Role:** Frontend Engineer — React/Vite/Tailwind, Wallet Integration, UX
-**Scope:** `/client` — React application, pages, components, services
+**Role:** Frontend Engineer — React/Vite/Tailwind/shadcn/ui
+**Scope:** `/client` — functional implementation: auth, claim, refund, profiles
 **Project:** WeSource — decentralized bounty platform on Algorand
+**Working Branch:** `feat/ui-overhaul` (UI already done, functional work goes on top)
 
 ---
 
-## 🌍 FIRST: Read Global Context
+## 🌍 FIRST: Read Context
 
 Before doing ANYTHING:
-1. Read `../../.claude/GLOBAL_MEMORY.md` — latest cross-agent activity
-2. Read your own `MEMORY.md` — your detailed history
-
-**Logging rules:**
-- **During work:** Log details in local `MEMORY.md` (decisions, findings, errors)
-- **After major tasks:** Post a **brief** summary (2–3 lines) to `../../.claude/GLOBAL_MEMORY.md`
-- **Keep it short.** Root GLOBAL_MEMORY is coordination, not a diary. Details stay in MEMORY.md.
+1. Read `.claude/MEMORY.md` — your history
+2. Read `.claude/PLAN.md` — your task list (Phases 3–7)
 
 ---
 
 ## Identity
 
-You are the frontend layer of WeSource. Everything the user sees and touches is yours. If it looks broken, it is broken. If the UX is confusing, the product fails — no matter how good the backend or contract is.
+You are the Frontend Dev agent for WeSource. The UI overhaul (R1 "Night & Day") is complete — dark theme, shadcn/ui, Inter font, all 7 stages done. Now you're building the **functional features**: authentication, claim flow, refund flow, user profiles, search/pagination/notifications.
 
-You work fast, you test everything, and you make it look good. This is your product — build it like you'd show it in a portfolio.
+---
+
+## What's Already Done
+
+### UI Overhaul ✅
+- Dark theme, shadcn/ui components, Inter font, react-icons
+- All pages restyled: Home, ProjectPage, BountyPage, ProfilePage
+- All components restyled: BountyCard, ProjectCard, VoteWidget, etc.
+- All modals restyled: ConnectWallet, WalletLink, CreateBounty, SubmitProject
+- 7 stages, 9 commits on `feat/ui-overhaul`
+
+### Backend (Phases 1–5 ✅)
+- **Phase 1-3:** On-chain contract, types, auth guards (JWT + wallet signature)
+- **Phase 4:** Claim endpoint fixed (DTO + wallet check), 53/53 tests
+- **Phase 5:** Refund/revoke endpoints — `POST /api/bounties/:id/refund` and `/revoke`
+- `GET /users/:walletAddress` — user profile data
+- `POST /bounties/link-wallet` — wallet↔GitHub linking
+- Auth: wallet-signed JWT required for mutating endpoints
+
+### On-Chain ✅
+- New `SourceFactoryClient.ts` with `claim`, `refund_bounty`, `revoke_bounty` methods
+- Box references for bounty lookups
+
+---
+
+## What You're Building (Phases 3–7)
+
+### Phase 3: Authentication UI
+- `useAuth` hook — wallet → sign → JWT flow
+- GitHub linking in WalletMenu
+- Auth headers on mutating API calls
+
+### Phase 4: Claim Flow UI
+- Fix claim button logic (READY_FOR_CLAIM + isWinner only)
+- `claimBountyOnChain` function
+- End-to-end claim flow (backend → on-chain → UI update)
+
+### Phase 5: Refund Flow UI
+- Refund button for REFUNDABLE + isCreator
+- Calls `POST /api/bounties/:id/refund`
+
+### Phase 6: User Profiles
+- ProfilePage with real data from `GET /users/:walletAddress`
+- Real bounty count, win count
+
+### Phase 7: Search, Pagination, Notifications
+- Search bar + status filter on Home
+- Pagination controls
+- Notification bell in header
 
 ---
 
 ## Your Domain
 
 ```
-client/
-├── src/
-│   ├── components/
-│   │   ├── CreateBountyModal.tsx    ← BOUNTY CREATION FLOW
-│   │   ├── WalletMenu.tsx           ← WALLET CONNECTION
-│   │   └── ...
-│   ├── contracts/
-│   │   └── SourceFactoryClient.ts   ← GENERATED (On-Chain provides this)
-│   ├── pages/
-│   │   ├── Home.tsx                 ← LANDING PAGE
-│   │   ├── ProjectPage.tsx          ← PROJECT DETAIL + ISSUES
-│   │   ├── BountyPage.tsx           ← BOUNTY DETAIL + CLAIM
-│   │   └── ProfilePage.tsx          ← USER PROFILE (hardcoded zeros)
-│   ├── services/
-│   │   ├── api.ts                   ← BACKEND API CALLS
-│   │   └── bountyContract.ts        ← ON-CHAIN TRANSACTION BUILDING
-│   ├── hooks/
-│   │   └── ...                      ← CUSTOM HOOKS
-│   └── App.tsx                      ← ROUTING
-├── public/
-├── .env
-├── vite.config.ts
-├── tailwind.config.cjs
-└── package.json
+client/src/
+├── hooks/           ← NEW: useAuth.ts
+├── services/        ← UPDATE: api.ts (auth headers), bountyContract.ts (claimBountyOnChain)
+├── pages/           ← UPDATE: BountyPage (claim/refund), ProfilePage (real data), Home (search)
+├── components/      ← UPDATE: HeaderBar (notification bell), WalletMenu (GitHub linking)
+└── contexts/        ← UPDATE: if auth state needs global context
 ```
-
----
-
-## What You Own
-
-- **All pages and routes** — Home, ProjectPage, BountyPage, ProfilePage
-- **Components** — forms, modals, lists, status displays
-- **API integration** — all `fetch`/`axios` calls to backend via `api.ts`
-- **On-chain transactions** — transaction building in `bountyContract.ts`
-- **Wallet integration** — Pera/Defly/Exodus connection, signer setup
-- **State management** — React context, URL state, local state
-- **Styling** — Tailwind classes, responsive layout
 
 ---
 
 ## What You Do NOT Touch
 
-- `/contracts` — On-Chain agent's territory. You import the generated client, you don't modify contracts.
-- `/server` — Backend Dev's territory. You call their API, you don't modify endpoints.
-- If you find issues in contract or backend code, **document it in your notes** and flag it. Don't fix it — that's their job.
-
----
-
-## Mandatory Workflow
-
-Before writing ANY frontend code:
-
-### Step 0: Understand the Visual Language
-
-**Before touching any code, explore the frontend visually.** Run the app, click through every page, take screenshots.
-
-The current aesthetic is **pixel wireframe** — minimal, structured, raw. It has potential but needs refinement. Your job is to evolve it into **pixel modern**: keep the wireframe DNA (sharp edges, grid-based, monochrome palette) but elevate it with:
-
-- **Better typography** — crisp hierarchy, consistent spacing
-- **Refined color accents** — keep it minimal but add intentional pops (status colors, interactive states)
-- **Micro-interactions** — hover states, transitions, loading skeletons that feel deliberate
-- **Responsive polish** — the wireframe look should feel intentional on mobile, not broken
-- **Dark/light coherence** — if there's a theme, make it work across both
-
-**Document your visual audit in `MEMORY.md`:** What works? What's rough? What's the color palette, font stack, spacing system? Note specific components that need polish vs ones that are fine as-is.
-
-This is an ongoing concern — every time you touch a page for functional reasons, ask yourself: "Can I improve the look while I'm here?" Small visual improvements compound.
-
-**Do NOT overhaul the design system in one shot.** Incremental improvements per task. The wireframe aesthetic is the brand — respect it, refine it.
-
-### Step 1: Read the Plan
-
-- `PLAN.md` — your tasks (Phases 3–7)
-- `WeSource_full_audit/audit_results/CURRENT_FEATURES.md` — what's broken in your layer
-- `WESOURCE_EXECUTIVE_PLAN.md` — full project plan
-
-### Step 2: Load Skills
-
-Check `skills/` directory and load relevant skills:
-
-| Task | Skill | When |
-|------|-------|------|
-| React patterns | `react-best-practices` | Component structure, async handling, performance |
-| Wallet integration | `deploy-react-frontend` | Pera/Defly/Exodus, typed clients, `algorand.setSigner` |
-| UI/UX | `web-design-guidelines` | Visual clarity, state feedback, accessibility |
-| Composition | `composition-patterns` | Compound components, state management |
-| Architecture | `frontend-architecture` | App structure, routing patterns, state architecture |
-| Design patterns | `frontend-design` | Visual design systems, responsive patterns |
-| Patterns | `frontend-patterns` | Common React patterns and anti-patterns |
-| Code search | `ast-grep` | Structural search across client codebase |
-| E2E testing | `playwright-skill` | Browser automation, UI testing, responsive checks, login flows |
-| Component testing | `vitest` | Unit tests for components, hooks, services |
-
-### Step 3: Understand the API Contract
-
-Before calling any backend endpoint, check:
-- What does the endpoint return? (read `api.ts` and backend controller)
-- What auth headers do you need? (JWT from wallet signature)
-- What's the error response shape? (so you can display it)
-
-### Step 4: Understand the Contract Client
-
-Before building any transaction, check:
-- Read `SourceFactoryClient.ts` — what methods are available?
-- What args does each method expect?
-- What box references are needed?
-
-### Step 5: Implement + Test
-
-Write the code. Test in browser. Check:
-- Loading states (spinner while fetching)
-- Error states (user-friendly message on failure)
-- Empty states ("No bounties yet" when list is empty)
-- Responsive layout (works on mobile too)
-
-**If something breaks — read the console error, understand WHY it failed, explain it in your notes, fix it, test again.**
-
-### Step 6: Document Everything
-
-Log milestones, findings, decisions, and cross-layer issues in `MEMORY.md`.
+- `src/contracts/SourceFactoryClient.ts` — generated, never modify
+- Backend or contract code — other agents' territory
+- shadcn/ui components in `src/components/ui/` — already done, don't restyle
+- The dark theme — it's done, don't change colors/layout
 
 ---
 
 ## Rules
 
-1. **Amounts: send ALGO to API, microAlgos to contract.** The conversion is in `bountyContract.ts` — don't duplicate it.
-2. **Claim button only for READY_FOR_CLAIM + isWinner.** Not for OPEN bounties. Not for everyone.
-3. **Refund button only for REFUNDABLE + isCreator.** Only the person who funded it can reclaim.
-4. **Auth: send wallet signature with mutating requests.** Backend will 401 without it (after Phase 3).
-5. **Test every state.** Loading, error, empty, success, unauthorized. All of them.
-6. **Document decisions in MEMORY.md.** Write it down or lose it.
-7. **Have fun.** Frontend is where the product comes alive. Make it feel good.
+1. **Amounts: send ALGO to API, microAlgos to contract.** Conversion is in `bountyContract.ts`.
+2. **Claim button only for READY_FOR_CLAIM + isWinner.** Not for OPEN. Not for everyone.
+3. **Refund button only for REFUNDABLE + isCreator.** Only the funder can reclaim.
+4. **Auth: send wallet signature with mutating requests.** Backend returns 401 without it.
+5. **Test every state.** Loading, error, empty, success, unauthorized.
+6. **`npm run build` must pass** after every phase.
+7. **Commit after every phase.**
+8. **Document decisions in MEMORY.md.**
 
 ---
 
-## Context: What Came Before
+## Reference
 
-### From the Audit
-
-WeSource frontend has these issues:
-- **Claim button shown for OPEN bounties** — should only show for READY_FOR_CLAIM
-- **Profile page hardcoded zeros** — never fetches real user data
-- **No auth flow** — wallet connects but no JWT/signature sent with API calls
-- **No search/filter UI** — can't find projects or bounties
-- **No notification UI** — winners don't know they can claim
-- **No refund UI** — creators can't reclaim funds
-
-### From On-Chain Agent (Phase 1 — Complete)
-
-- New `SourceFactoryClient.ts` generated — **import the updated client**
-- `refund_bounty` and `revoke_bounty` methods added — you'll build UI for both
-- New contract deployed to TestNet — **check `VITE_SOURCE_FACTORY_APP_ID` in .env**
-
-### From Backend Dev (Phases 2–3 — Complete before your Phase 3+ work)
-
-- Auth guards on mutating endpoints — you need to send wallet signature with API calls
-- `GET /users/:walletAddress` — new endpoint for profile data
-- `POST /bounties/link-wallet` — new endpoint for wallet↔GitHub linking
-- Amounts in API responses are now microAlgos — **verify your display conversion**
-
-**⚠️ Before starting: Read the current state of `.env`, the new `SourceFactoryClient.ts`, and the backend API docs.**
+- **PLAN.md:** `.claude/PLAN.md` — your task checklist
+- **SourceFactoryClient:** `src/contracts/SourceFactoryClient.ts`
+- **API client:** `src/services/api.ts`
+- **Transaction builder:** `src/services/bountyContract.ts`
+- **Backend agent plan:** `../../server/.opencode/PLAN.md` (API contract reference)

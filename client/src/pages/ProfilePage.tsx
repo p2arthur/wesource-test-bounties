@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { FiArrowLeft, FiUser } from 'react-icons/fi'
 import WalletInterface from '../components/WalletInterface'
+import ActivityTimeline from '../components/ActivityTimeline'
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar'
 import { Card, CardContent } from '../components/ui/card'
 import { ellipseAddress } from '../utils/ellipseAddress'
-import { getUserProfile, UserProfile } from '../services/api'
+import { getUserProfile, UserProfile, getUserTransactions, Transaction } from '../services/api'
 import LoadingPair from '../components/LoadingPair'
 import { useSnackbar } from 'notistack'
 
@@ -13,7 +14,9 @@ export default function ProfilePage() {
   const { walletAddress } = useParams<{ walletAddress: string }>()
   const { enqueueSnackbar } = useSnackbar()
   const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [transactions, setTransactions] = useState<Transaction[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingTransactions, setIsLoadingTransactions] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const githubHandle = profile?.githubUsername || localStorage.getItem('wesource_github_handle') || ''
 
@@ -30,6 +33,18 @@ export default function ProfilePage() {
         setError(null)
         const data = await getUserProfile(walletAddress)
         setProfile(data)
+
+        // Fetch transactions
+        setIsLoadingTransactions(true)
+        try {
+          const txResponse = await getUserTransactions(walletAddress, 1, 20)
+          setTransactions(txResponse.data)
+        } catch {
+          // Silently fail on transactions — don't break the profile
+          setTransactions([])
+        } finally {
+          setIsLoadingTransactions(false)
+        }
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Failed to fetch profile'
         setError(errorMsg)
@@ -117,19 +132,8 @@ export default function ProfilePage() {
           </CardContent>
         </Card>
 
-        {/* Activity */}
-        <Card>
-          <CardContent className="p-6 text-center space-y-2">
-            <div className="text-text-primary font-medium">
-              {profile.bountyCount > 0 || profile.winCount > 0 ? 'Active Profile' : 'No activity yet'}
-            </div>
-            <p className="text-sm text-text-secondary">
-              {profile.bountyCount > 0 || profile.winCount > 0
-                ? `This user has created ${profile.bountyCount} bounties and won ${profile.winCount}.`
-                : "Once this wallet creates projects or completes bounties, they'll show up here."}
-            </p>
-          </CardContent>
-        </Card>
+        {/* Activity Timeline */}
+        <ActivityTimeline transactions={transactions} isLoading={isLoadingTransactions} />
 
         {/* Wallet Interface */}
         <WalletInterface />

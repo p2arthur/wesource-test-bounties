@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { FiPlus } from 'react-icons/fi'
+import { FiPlus, FiSearch } from 'react-icons/fi'
+import { useSearchParams } from 'react-router-dom'
 import AppCalls from './components/AppCalls'
 import BountyCard from './components/BountyCard'
 import LoadingPair from './components/LoadingPair'
@@ -8,16 +9,20 @@ import SubmitProjectForm from './components/SubmitProjectForm'
 import Transact from './components/Transact'
 import WonBountiesSidebar from './components/WonBountiesSidebar'
 import { Button } from './components/ui/button'
+import { Input } from './components/ui/input'
 import { useProjects } from './contexts/ProjectContext'
 import { useUnifiedWallet } from './hooks/useUnifiedWallet'
 import { Bounty, ProjectCategory } from './interfaces/entities'
 import { listBounties } from './services/api'
 
 type Tab = 'projects' | 'bounties'
+type BountyStatus = 'OPEN' | 'READY_FOR_CLAIM' | 'CLAIMED' | 'REFUNDABLE' | 'ALL'
 
 const categoryFilters: ProjectCategory[] = ['DeFi', 'DAO', 'NFT']
+const bountyStatusFilters: BountyStatus[] = ['OPEN', 'READY_FOR_CLAIM', 'CLAIMED', 'REFUNDABLE', 'ALL']
 
 const Home: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [openDemoModal, setOpenDemoModal] = useState<boolean>(false)
   const [appCallsDemoModal, setAppCallsDemoModal] = useState<boolean>(false)
   const [openSubmitProjectModal, setOpenSubmitProjectModal] = useState<boolean>(false)
@@ -26,9 +31,38 @@ const Home: React.FC = () => {
   const [bounties, setBounties] = useState<Bounty[]>([])
   const [bountiesLoading, setBountiesLoading] = useState(false)
   const [bountiesError, setBountiesError] = useState<string | null>(null)
+  const [searchInput, setSearchInput] = useState(searchParams.get('search') || '')
+  const [bountyStatus, setBountyStatus] = useState<BountyStatus>(
+    (searchParams.get('status') as BountyStatus) || 'ALL'
+  )
 
   const { projects, loading, error } = useProjects()
   const { isConnected } = useUnifiedWallet()
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const newParams = new URLSearchParams(searchParams)
+      if (searchInput) {
+        newParams.set('search', searchInput)
+      } else {
+        newParams.delete('search')
+      }
+      setSearchParams(newParams)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchInput, searchParams, setSearchParams])
+
+  // Update status filter in URL
+  useEffect(() => {
+    const newParams = new URLSearchParams(searchParams)
+    if (bountyStatus !== 'ALL') {
+      newParams.set('status', bountyStatus)
+    } else {
+      newParams.delete('status')
+    }
+    setSearchParams(newParams)
+  }, [bountyStatus, searchParams, setSearchParams])
 
   useEffect(() => {
     let isActive = true
@@ -94,11 +128,29 @@ const Home: React.FC = () => {
         return projectInfo ? { ...bounty, projectName: projectInfo.name } : bounty
       })
       .filter((bounty) => {
-        if (category === 'ALL') return true
-        const key = `${bounty.repoOwner.toLowerCase()}/${bounty.repoName.toLowerCase()}`
-        return projectRepoMap.get(key)?.category === category
+        // Filter by category
+        if (category !== 'ALL') {
+          const key = `${bounty.repoOwner.toLowerCase()}/${bounty.repoName.toLowerCase()}`
+          const projectCategory = projectRepoMap.get(key)?.category
+          if (projectCategory !== category) return false
+        }
+
+        // Filter by status
+        if (bountyStatus !== 'ALL' && bounty.status !== bountyStatus) return false
+
+        // Filter by search term (repo name, issue number, or repo owner)
+        if (searchInput.trim()) {
+          const searchLower = searchInput.toLowerCase()
+          return (
+            bounty.repoName.toLowerCase().includes(searchLower) ||
+            bounty.repoOwner.toLowerCase().includes(searchLower) ||
+            bounty.issueNumber.toString().includes(searchLower)
+          )
+        }
+
+        return true
       })
-  }, [bounties, category, projectRepoMap])
+  }, [bounties, category, projectRepoMap, bountyStatus, searchInput])
 
   return (
     <div className="min-h-screen">
@@ -116,7 +168,7 @@ const Home: React.FC = () => {
           {/* Main Content */}
           <div className="flex-1 space-y-6">
             {/* Tabs + Filter Bar */}
-            <div className="flex gap-4 items-center justify-between rounded-lg border border-border-default bg-bg-surface h-16 px-4">
+            <div className={`rounded-lg border border-border-default bg-bg-surface px-4 ${activeTab === 'bounties' ? 'space-y-4 p-4' : 'h-16 flex items-center justify-between'}`}>
               <div className="flex gap-1">
                 {(['projects', 'bounties'] as Tab[]).map((tab) => (
                   <button
@@ -133,36 +185,66 @@ const Home: React.FC = () => {
                 ))}
               </div>
 
-              <div className="flex gap-2 items-center flex-wrap">
-                <span className="text-sm text-text-muted">Filter:</span>
-                <button
-                  className={`px-3 py-1 text-xs rounded-full border transition-colors ${
-                    category === 'ALL'
-                      ? 'border-accent bg-accent/15 text-accent'
-                      : 'border-border-default text-text-secondary hover:border-accent/50 hover:text-text-primary'
-                  }`}
-                  onClick={() => setCategory('ALL')}
-                >
-                  All
-                </button>
-                {categoryFilters.map((cat) => (
+              {activeTab === 'projects' ? (
+                <div className="flex gap-2 items-center flex-wrap">
+                  <span className="text-sm text-text-muted">Filter:</span>
                   <button
-                    key={cat}
                     className={`px-3 py-1 text-xs rounded-full border transition-colors ${
-                      category === cat
+                      category === 'ALL'
                         ? 'border-accent bg-accent/15 text-accent'
                         : 'border-border-default text-text-secondary hover:border-accent/50 hover:text-text-primary'
                     }`}
-                    onClick={() => setCategory(cat)}
+                    onClick={() => setCategory('ALL')}
                   >
-                    {cat}
+                    All
                   </button>
-                ))}
-                <Button size="sm" className="ml-2 gap-1" onClick={() => setOpenSubmitProjectModal(true)}>
-                  <FiPlus className="w-4 h-4" />
-                  Submit Project
-                </Button>
-              </div>
+                  {categoryFilters.map((cat) => (
+                    <button
+                      key={cat}
+                      className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                        category === cat
+                          ? 'border-accent bg-accent/15 text-accent'
+                          : 'border-border-default text-text-secondary hover:border-accent/50 hover:text-text-primary'
+                      }`}
+                      onClick={() => setCategory(cat)}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                  <Button size="sm" className="ml-2 gap-1" onClick={() => setOpenSubmitProjectModal(true)}>
+                    <FiPlus className="w-4 h-4" />
+                    Submit Project
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex gap-3 items-center flex-wrap">
+                  <div className="flex-1 min-w-64">
+                    <div className="relative">
+                      <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                      <Input
+                        placeholder="Search repo, owner, or issue..."
+                        value={searchInput}
+                        onChange={(e) => setSearchInput(e.target.value)}
+                        className="pl-9"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 items-center">
+                    <span className="text-sm text-text-muted">Status:</span>
+                    <select
+                      value={bountyStatus}
+                      onChange={(e) => setBountyStatus(e.target.value as BountyStatus)}
+                      className="px-3 py-1.5 text-xs rounded-md border border-border-default bg-bg-elevated text-text-primary focus:outline-none focus:border-accent"
+                    >
+                      {bountyStatusFilters.map((status) => (
+                        <option key={status} value={status}>
+                          {status === 'ALL' ? 'All Statuses' : status.replace(/_/g, ' ')}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Content */}

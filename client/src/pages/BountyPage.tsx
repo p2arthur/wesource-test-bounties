@@ -90,10 +90,10 @@ export default function BountyPage() {
 
   const handleRefund = async () => {
     if (!bounty) return
-    
+
     setIsRefunding(true)
     setRefundError(null)
-    
+
     try {
       await refundBounty(bounty.id)
       // Reload bounties to update status
@@ -182,11 +182,14 @@ export default function BountyPage() {
           </div>
 
           {/* Project Link */}
-        {project && (
-          <Link to={`/project/${project.id}`} className="flex items-center gap-3 p-3 border-2 border-black hover:bg-gray-50 transition-colors">
-            {project.logo && <img src={project.logo} alt={project.name} className="h-10 w-10 object-contain border-2 border-black p-1" />}
-            <div>
-              <div className="text-sm text-muted">Project</div>
+          {project && (
+            <Link
+              to={`/project/${project.id}`}
+              className="flex items-center gap-3 p-3 border-2 border-black hover:bg-gray-50 transition-colors"
+            >
+              {project.logo && <img src={project.logo} alt={project.name} className="h-10 w-10 object-contain border-2 border-black p-1" />}
+              <div>
+                <div className="text-sm text-muted">Project</div>
                 <div className="font-bold text-black">{project.name}</div>
               </div>
               <FaChevronRight className="w-5 h-5 ml-auto text-black" />
@@ -199,7 +202,8 @@ export default function BountyPage() {
           <div>
             <h2 className="text-lg font-bold text-black mb-3">Description</h2>
             <p className="text-black leading-relaxed">
-              This bounty is for GitHub issue {bountyTitle}. Contributors should review the issue for detailed requirements and specifications.
+              This bounty is for GitHub issue {bountyTitle}. Contributors should review the issue for detailed requirements and
+              specifications.
             </p>
           </div>
 

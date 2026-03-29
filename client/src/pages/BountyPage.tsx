@@ -34,7 +34,7 @@ export default function BountyPage() {
   const [isClaiming, setIsClaiming] = useState(false)
   const [showWalletLinkModal, setShowWalletLinkModal] = useState(false)
   const { enqueueSnackbar } = useSnackbar()
-  const { getAuth, handleAuthError } = useAuth()
+  const { jwtToken, handleAuthError, login, isAuthenticated } = useAuth()
 
   useEffect(() => {
     let isActive = true
@@ -100,10 +100,20 @@ export default function BountyPage() {
 
   const handleClaim = async () => {
     if (!bounty) return
+
+    // Ensure user is authenticated
+    if (!isAuthenticated) {
+      await login()
+    }
+
+    if (!jwtToken) {
+      enqueueSnackbar('Authentication required. Please login first.', { variant: 'error' })
+      return
+    }
+
     setIsClaiming(true)
     try {
-      const headers = await getAuth()
-      const result = await claimBounty(bounty.id, headers)
+      const result = await claimBounty(bounty.id, jwtToken)
       enqueueSnackbar(`Bounty claimed! Transaction: ${result.txId}`, { variant: 'success' })
       const updatedBounty = await getBountyById(bounty.id)
       setBounties(prev => prev.map(b => b.id === bounty.id ? updatedBounty : b))

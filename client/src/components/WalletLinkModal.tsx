@@ -17,12 +17,11 @@ interface WalletLinkModalProps {
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
-  bountyId: number
 }
 
-export default function WalletLinkModal({ isOpen, onClose, onSuccess, bountyId }: WalletLinkModalProps) {
+export default function WalletLinkModal({ isOpen, onClose, onSuccess }: WalletLinkModalProps) {
   const { enqueueSnackbar } = useSnackbar()
-  const { getAuth } = useAuth()
+  const { jwtToken, login, isAuthenticated } = useAuth()
   const [isLinking, setIsLinking] = useState(false)
   const [githubUsername, setGithubUsername] = useState('')
   const [githubId, setGithubId] = useState('')
@@ -33,10 +32,19 @@ export default function WalletLinkModal({ isOpen, onClose, onSuccess, bountyId }
       return
     }
 
+    // Ensure user is authenticated with JWT
+    if (!isAuthenticated) {
+      await login()
+    }
+
+    if (!jwtToken) {
+      enqueueSnackbar('Authentication required. Please login first.', { variant: 'error' })
+      return
+    }
+
     setIsLinking(true)
     try {
-      const headers = await getAuth()
-      await linkWallet(githubUsername, parseInt(githubId, 10), headers)
+      await linkWallet(githubUsername, parseInt(githubId, 10), jwtToken)
       enqueueSnackbar('Wallet linked successfully!', { variant: 'success' })
       onSuccess()
       onClose()
@@ -51,9 +59,9 @@ export default function WalletLinkModal({ isOpen, onClose, onSuccess, bountyId }
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Link Wallet to Claim Bounty</DialogTitle>
+          <DialogTitle>Link GitHub Account</DialogTitle>
           <DialogDescription>
-            Link your GitHub account to verify you're the issue solver and claim this bounty.
+            Link your GitHub account to your wallet to claim bounties and receive payments.
           </DialogDescription>
         </DialogHeader>
 

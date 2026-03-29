@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { FiGlobe, FiCreditCard, FiLogOut, FiUser, FiCopy, FiCheck } from 'react-icons/fi'
+import { FiGlobe, FiCreditCard, FiLogOut, FiUser, FiCopy, FiCheck, FiGithub } from 'react-icons/fi'
 import { Link } from 'react-router-dom'
 import { SOCIAL_LOGIN_PROVIDERS, useUnifiedWallet } from '../hooks/useUnifiedWallet'
 import { ellipseAddress } from '../utils/ellipseAddress'
 import { Button } from './ui/button'
+import WalletLinkModal from './WalletLinkModal'
 
 const GitHubIcon = () => (
   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -14,6 +15,7 @@ const GitHubIcon = () => (
 export default function WalletMenu() {
   const { activeAddress, isConnected, isLoading, connectSocial, disconnect, userInfo, traditionalWallets } = useUnifiedWallet()
   const [isOpen, setIsOpen] = useState(false)
+  const [isLinkModalOpen, setIsLinkModalOpen] = useState(false)
   const [githubHandle, setGithubHandle] = useState<string>('')
   const [isFetchingGithub, setIsFetchingGithub] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -41,22 +43,23 @@ export default function WalletMenu() {
     setIsOpen(false)
   }
 
-  useEffect(() => {
-    const fetchGithubUsername = async () => {
-      if (isConnected && userInfo?.verifierId) {
-        setIsFetchingGithub(true)
-        try {
-          const githubNumericId = userInfo.verifierId.split('|')[1]
-          const response = await fetch(`https://api.github.com/user/${githubNumericId}`)
-          const data = await response.json()
-          if (data.login) setGithubHandle(data.login)
-        } catch (error) {
-          console.error('Error fetching GitHub username:', error)
-        } finally {
-          setIsFetchingGithub(false)
-        }
+  const fetchGithubUsername = async () => {
+    if (isConnected && userInfo?.verifierId) {
+      setIsFetchingGithub(true)
+      try {
+        const githubNumericId = userInfo.verifierId.split('|')[1]
+        const response = await fetch(`https://api.github.com/user/${githubNumericId}`)
+        const data = await response.json()
+        if (data.login) setGithubHandle(data.login)
+      } catch (error) {
+        console.error('Error fetching GitHub username:', error)
+      } finally {
+        setIsFetchingGithub(false)
       }
     }
+  }
+
+  useEffect(() => {
     fetchGithubUsername()
   }, [isConnected, userInfo])
 
@@ -136,6 +139,13 @@ export default function WalletMenu() {
                 </Link>
               </Button>
 
+              {!githubHandle && !isFetchingGithub && (
+                <Button variant="secondary" className="w-full justify-start gap-2" onClick={() => { setIsLinkModalOpen(true); setIsOpen(false); }}>
+                  <FiGithub className="w-4 h-4" />
+                  Link GitHub Account
+                </Button>
+              )}
+
               <Button variant="ghost" className="w-full justify-start gap-2 text-danger hover:text-danger hover:bg-danger/10" onClick={handleLogout}>
                 <FiLogOut className="w-4 h-4" />
                 Log out
@@ -184,6 +194,15 @@ export default function WalletMenu() {
           )}
         </div>
       )}
+
+      <WalletLinkModal
+        isOpen={isLinkModalOpen}
+        onClose={() => setIsLinkModalOpen(false)}
+        onSuccess={() => {
+          setGithubHandle('') // Reset to trigger re-fetch
+          fetchGithubUsername() // Re-fetch GitHub handle
+        }}
+      />
     </div>
   )
 }

@@ -1,121 +1,74 @@
-# Frontend Dev — Functional MVP Plan
+# Frontend Dev — Phase 7.2 + 7.3 (Unblocked)
 
-**Last Updated:** 2026-03-29
-**Scope:** Phases 3–7 — Auth, Claim, Refund, Profiles, Search
-**Status:** ✅ COMPLETE (Phases 3–7.1)
-
----
-
-## Phase 3: Authentication UI ✅
-
-### Task 3.1: Create `useAuth` Hook ✅
-- [x] Enhanced `src/hooks/useAuth.ts` with JWT token management
-- [x] Flow: wallet signature → backend login → JWT storage → included in headers
-- [x] Exports: `token`, `isAuthenticated`, `login`, `logout`, `jwtToken`, `walletAddress`
-- [x] Commit: `feat(auth): Phase 3.1 — useAuth hook with JWT token management`
-
-### Task 3.2: Update WalletMenu with GitHub Linking ✅
-- [x] Updated `WalletLinkModal.tsx` to use JWT tokens
-- [x] Added "Link GitHub Account" button in `WalletMenu.tsx`
-- [x] Modal accepts GitHub username and ID
-- [x] Refactored GitHub username fetching
-- [x] Commit: `feat(auth): Phase 3.2 — GitHub linking in WalletMenu`
-
-### Task 3.3: Attach Auth Headers to API Calls ✅
-- [x] Updated `api.ts` — JWT added to Authorization header
-- [x] `claimBounty`, `linkWallet`, `refundBounty` all accept jwtToken
-- [x] Error handling for 401 via `handleAuthError`
-- [x] Commits: Multiple (see MEMORY.md)
+**Status:** Backend endpoints are now implemented and ready.
+**What changed:**
+- `GET /api/bounties?page=&limit=` — paginated response: `{ data, total, page, limit, totalPages }`
+- `GET /projects?page=&limit=` — same shape
+- `GET /api/users/:walletAddress` — returns `{ username, wallet, bountiesCreated, bountiesWon, joinedAt }`
+- `GET /api/notifications?wallet=&page=&limit=` — paginated notifications
+- `PATCH /api/notifications/:id/read` — mark as read
+- `GET /api/notifications/unread-count?wallet=` — unread count
 
 ---
 
-## Phase 4: Claim Flow UI ✅
+## Phase 6 Fix: Verify User Profiles
 
-### Task 4.1: Claim Button Logic ✅
-- [x] Button visibility rules in `BountyPage.tsx`:
-  - OPEN → "Solve this issue on GitHub" message ✅
-  - READY_FOR_CLAIM + isWinner → "Claim Bounty" button ✅
-  - READY_FOR_CLAIM + !isWinner → "Awarded to {winner}" ✅
-  - CLAIMED → "Claimed" success state ✅
-- [x] Commit: `feat(bounty): Phase 4 — Claim Flow UI with JWT authentication`
-
-### Task 4.2: On-Chain Integration ✅
-- [x] Backend's `withdrawBounty` method handles on-chain
-- [x] Not needed in frontend (backend abstracts this)
-- [x] SourceFactoryClient available for future use
-
-### Task 4.3: Connect to Backend + On-Chain ✅
-- [x] Claim click → `POST /api/bounties/claim` with JWT
-- [x] Ensures JWT authentication before claiming
-- [x] Updates UI with new bounty status
-- [x] Error handling via `handleAuthError`
-- [x] Commit: included in Phase 4
+- [ ] Check that `src/services/api.ts` has `getUserProfile(walletAddress)` calling `GET /api/users/:walletAddress`
+- [ ] Verify `ProfilePage.tsx` uses the real endpoint (not hardcoded)
+- [ ] Test: navigate to profile → shows real bounty count, win count, joined date
+- [ ] Commit if fix needed
 
 ---
 
-## Phase 5: Refund Flow UI ✅
+## Phase 7.2: Pagination
 
-### Task 5.1: Add Refund UI to BountyPage ✅
-- [x] Added to `BountyPage.tsx`:
-  - REFUNDABLE + isCreator → refund button with destructive variant ✅
-  - `handleRefund` → `POST /api/bounties/:id/refund` with JWT ✅
-  - Updates UI on success ✅
-- [x] Commit: `feat(bounty): Phase 5 — Refund Flow UI`
+### Task 7.2.1: Add Pagination to Home — Bounties List
+- [ ] Update `Home.tsx` — bounties tab uses paginated API: `GET /api/bounties?page=&limit=20`
+- [ ] Parse response: `{ data, total, page, limit, totalPages }`
+- [ ] Add Previous/Next buttons below the bounty list
+- [ ] Sync with URL params: `?page=2` persists on refresh
+- [ ] Disable Previous on page 1, disable Next on last page
+- [ ] Commit
 
----
-
-## Phase 6: User Profiles ✅
-
-### Task 6.1: Update ProfilePage with Real Data ✅
-- [x] Fetches real data from `GET /api/users/:walletAddress`
-- [x] Displays:
-  - GitHub username (from profile, or "Not linked")
-  - Bounty count (created)
-  - Win count (won)
-  - Joined date
-- [x] Loading and error states implemented
-- [x] Activity message dynamic based on stats
-- [x] Commit: `feat(profile): Phase 6 — User Profiles with Real Data`
+### Task 7.2.2: Add Pagination to Home — Projects List
+- [ ] Update `Home.tsx` — projects tab uses paginated API: `GET /projects?page=&limit=20`
+- [ ] Same pagination UI pattern as bounties
+- [ ] URL params: `?page=2` for whichever tab is active
+- [ ] Commit
 
 ---
 
-## Phase 7: Search, Pagination, Notifications
+## Phase 7.3: Notifications
 
-### Task 7.1: Search Bar + Status Filter ✅
-- [x] Added search input (searches repo name, owner, issue #)
-- [x] Added status dropdown (OPEN, READY_FOR_CLAIM, CLAIMED, REFUNDABLE, ALL)
-- [x] 300ms debounce on search input
-- [x] Filters wire to `?search=&status=` query params
-- [x] Filters persist across page refreshes
-- [x] Commit: `feat(search): Phase 7.1 — Search Bar + Status Filter for Bounties`
+### Task 7.3.1: Notification Bell in HeaderBar
+- [ ] Add bell icon to `HeaderBar.tsx` (use `react-icons/fi` — `FiBell`)
+- [ ] Fetch unread count from `GET /api/notifications/unread-count?wallet=`
+- [ ] Show red badge with count when > 0
+- [ ] Refresh count on page navigation (or poll every 30s)
+- [ ] Commit
 
-### Task 7.2: Pagination Controls 🔄
-- [ ] Requires backend pagination API support (`?page=&limit=`)
-- [ ] Add Previous/Next controls below lists
-- [ ] Read `page`/`limit` from URL params
-- [ ] Not started (waiting on backend support)
-
-### Task 7.3: Notification Bell 🔄
-- [ ] Requires `GET /notifications` backend endpoint
-- [ ] Add bell icon to HeaderBar
-- [ ] Unread count badge
-- [ ] Dropdown with notifications
-- [ ] Not started (waiting on backend support)
+### Task 7.3.2: Notification Dropdown
+- [ ] On bell click, show dropdown with notifications from `GET /api/notifications?wallet=`
+- [ ] Each notification: type icon, message, timestamp, read/unread styling
+- [ ] Click notification → navigate to relevant bounty page
+- [ ] Click → `PATCH /api/notifications/:id/read` to mark as read
+- [ ] Update badge count after marking read
+- [ ] Commit
 
 ---
 
-## Completion Criteria
+## Rules
 
-- [x] Phases 3–6 and 7.1 complete
-- [x] `npm run build` passes ✅
-- [x] Browser testing: all flows verified ✅
-- [x] Loading, error, empty states handled ✅
-- [x] MEMORY.md updated ✅
-- [x] TEST_RESULTS.md comprehensive report ✅
-- [x] Playwright e2e tests written ✅
-- [x] 6 commits created with clear messages ✅
+1. Commit after each task
+2. `npm run build` must pass
+3. Test at 375px, 768px, 1024px
+4. Document decisions in `.claude/MEMORY.md`
 
-## Final Status
+---
 
-✅ **Production Ready**
-All core functional MVP features (Phases 3–7.1) implemented, tested, and verified working.
+## Reference
+
+- **API client:** `src/services/api.ts` — add new endpoints here
+- **HeaderBar:** `src/components/HeaderBar.tsx` — bell icon goes here
+- **Home:** `src/Home.tsx` — pagination goes here
+- **Backend endpoints:** All confirmed working, Swagger at `http://localhost:3000/api`

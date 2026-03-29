@@ -1,5 +1,5 @@
 import { IProvider } from '@web3auth/base'
-import algosdk, { TransactionSigner } from 'algosdk'
+import algosdk, { TransactionSigner, Address } from 'algosdk'
 import { Buffer } from 'buffer'
 
 export interface AlgorandTransactionSigner {
@@ -21,7 +21,7 @@ export function createWeb3AuthSigner(account: AlgorandAccountFromWeb3Auth): Tran
           })()
 
   return algosdk.makeBasicAccountTransactionSigner({
-    addr,
+    addr: addr as unknown as Address,
     sk: secretKey,
   })
 }
@@ -65,12 +65,12 @@ export function verifyWeb3AuthSignature(signedTransaction: Uint8Array, account: 
   try {
     const decodedTxn = algosdk.decodeSignedTransaction(signedTransaction)
 
-    const txnSigner = decodedTxn.sig?.signers?.[0] ?? decodedTxn.sig?.signer
+    const txnSigner = (decodedTxn as any).sig?.signers?.[0] ?? (decodedTxn as any).sig?.signer
 
     if (!txnSigner) return false
 
     const decodedAddress = algosdk.decodeAddress(account.address)
-    return Buffer.from(txnSigner).equals(decodedAddress.publicKey)
+    return Buffer.from(txnSigner as any).equals(decodedAddress.publicKey)
   } catch (error) {
     console.error('Error verifying signature:', error)
     return false
@@ -175,7 +175,8 @@ export function createAlgorandSigner(secretKey: Uint8Array) {
 
     for (const txn of transactions) {
       try {
-        const signedTxn = algosdk.signTransaction(txn, secretKey)
+        const decodedTxn = algosdk.decodeUnsignedTransaction(txn)
+        const signedTxn = algosdk.signTransaction(decodedTxn, secretKey)
         signedTxns.push(signedTxn.blob)
       } catch (error) {
         throw new Error(`Failed to sign transaction: ${error instanceof Error ? error.message : 'Unknown error'}`)

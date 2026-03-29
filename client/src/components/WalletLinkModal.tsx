@@ -17,6 +17,7 @@ interface WalletLinkModalProps {
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
+  bountyId?: number
 }
 
 export default function WalletLinkModal({ isOpen, onClose, onSuccess }: WalletLinkModalProps) {

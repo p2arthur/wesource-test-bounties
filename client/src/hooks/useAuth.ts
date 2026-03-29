@@ -32,7 +32,7 @@ export function useAuth() {
     }
 
     try {
-      return await getAuthHeaders(walletType, activeAddress, signLoginMessage);
+      return await getAuthHeaders(walletType as any, activeAddress, signLoginMessage);
     } catch (error) {
       console.error('Failed to get auth headers:', error);
       enqueueSnackbar('Failed to authenticate. Please reconnect wallet.', {

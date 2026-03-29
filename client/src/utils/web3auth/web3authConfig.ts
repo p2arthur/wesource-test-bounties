@@ -43,7 +43,6 @@ export async function initWeb3Auth(): Promise<Web3Auth> {
         },
         mode: 'light' as const,
         loginMethodsOrder: ['google', 'facebook', 'github', 'twitter'],
-        defaultLanguage: 'en',
       },
     }
 

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { FiPlus } from 'react-icons/fi'
 import AppCalls from './components/AppCalls'
 import BountyCard from './components/BountyCard'
 import LoadingPair from './components/LoadingPair'
@@ -6,6 +7,7 @@ import ProjectCard from './components/ProjectCard'
 import SubmitProjectForm from './components/SubmitProjectForm'
 import Transact from './components/Transact'
 import WonBountiesSidebar from './components/WonBountiesSidebar'
+import { Button } from './components/ui/button'
 import { useProjects } from './contexts/ProjectContext'
 import { useUnifiedWallet } from './hooks/useUnifiedWallet'
 import { Bounty, ProjectCategory } from './interfaces/entities'
@@ -102,9 +104,9 @@ const Home: React.FC = () => {
     <div className="min-h-screen">
       <div className="mx-auto px-4 py-8">
         {/* Hero Section */}
-        <div className="card p-6 mb-6">
-          <h2 className="text-3xl font-bold text-black">Open Source, Incentivized.</h2>
-          <p className="text-sm text-muted mt-2">
+        <div className="rounded-lg border border-border-default bg-bg-surface p-6 mb-6">
+          <h2 className="text-3xl font-bold text-text-primary">Open Source, Incentivized.</h2>
+          <p className="text-sm text-text-secondary mt-2">
             Bridge the gap between critical code and fair rewards with decentralized bounties that power software sustainability.
           </p>
         </div>
@@ -113,12 +115,17 @@ const Home: React.FC = () => {
         <div className={`flex gap-6 ${isConnected ? 'flex-col lg:flex-row' : ''}`}>
           {/* Main Content */}
           <div className="flex-1 space-y-6">
-            <div className="flex gap-4 items-center justify-between glass h-16 p-4">
-              <div className="flex gap-2">
+            {/* Tabs + Filter Bar */}
+            <div className="flex gap-4 items-center justify-between rounded-lg border border-border-default bg-bg-surface h-16 px-4">
+              <div className="flex gap-1">
                 {(['projects', 'bounties'] as Tab[]).map((tab) => (
                   <button
                     key={tab}
-                    className={`btn-secondary px-4 py-2 text-sm ${tab === activeTab ? 'is-active' : ''}`}
+                    className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                      tab === activeTab
+                        ? 'bg-bg-hover text-text-primary'
+                        : 'text-text-secondary hover:text-text-primary'
+                    }`}
                     onClick={() => setActiveTab(tab)}
                   >
                     {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -127,9 +134,13 @@ const Home: React.FC = () => {
               </div>
 
               <div className="flex gap-2 items-center flex-wrap">
-                <span className="text-sm font-medium text-black">Filter:</span>
+                <span className="text-sm text-text-muted">Filter:</span>
                 <button
-                  className={`btn-secondary px-3 py-2 text-sm ${category === 'ALL' ? 'is-active' : ''}`}
+                  className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                    category === 'ALL'
+                      ? 'border-accent bg-accent/15 text-accent'
+                      : 'border-border-default text-text-secondary hover:border-accent/50 hover:text-text-primary'
+                  }`}
                   onClick={() => setCategory('ALL')}
                 >
                   All
@@ -137,30 +148,33 @@ const Home: React.FC = () => {
                 {categoryFilters.map((cat) => (
                   <button
                     key={cat}
-                    className={`btn-secondary px-3 py-2 text-sm ${category === cat ? 'is-active' : ''}`}
+                    className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                      category === cat
+                        ? 'border-accent bg-accent/15 text-accent'
+                        : 'border-border-default text-text-secondary hover:border-accent/50 hover:text-text-primary'
+                    }`}
                     onClick={() => setCategory(cat)}
                   >
                     {cat}
                   </button>
                 ))}
-                <button className="btn-primary flex items-center gap-2 ml-auto" onClick={() => setOpenSubmitProjectModal(true)}>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
+                <Button size="sm" className="ml-2 gap-1" onClick={() => setOpenSubmitProjectModal(true)}>
+                  <FiPlus className="w-4 h-4" />
                   Submit Project
-                </button>
+                </Button>
               </div>
             </div>
 
+            {/* Content */}
             <div className="space-y-6">
               {loading ? (
-                <div className="card p-8 text-center">
+                <div className="rounded-lg border border-border-default bg-bg-surface p-8 text-center">
                   <LoadingPair size="lg" label="Loading projects..." />
                 </div>
               ) : error ? (
-                <div className="card p-8 text-center space-y-4">
-                  <div className="text-red-600">{error}</div>
-                  <p className="text-muted text-sm">
+                <div className="rounded-lg border border-border-default bg-bg-surface p-8 text-center space-y-4">
+                  <div className="text-danger">{error}</div>
+                  <p className="text-text-secondary text-sm">
                     Make sure the API server is running at {import.meta.env.VITE_API_URL || 'http://localhost:3000'}
                   </p>
                 </div>
@@ -172,21 +186,21 @@ const Home: React.FC = () => {
                     ))}
                   </div>
                 ) : (
-                  <div className="card p-8 text-center space-y-2">
-                    <div className="text-black font-medium">No projects yet</div>
-                    <p className="text-muted text-sm">Submit your first project using the button above!</p>
+                  <div className="rounded-lg border border-border-default bg-bg-surface p-8 text-center space-y-2">
+                    <div className="text-text-primary font-medium">No projects yet</div>
+                    <p className="text-text-secondary text-sm">Submit your first project using the button above!</p>
                   </div>
                 )
               ) : (
                 <>
                   {bountiesLoading ? (
-                    <div className="card p-8 text-center">
+                    <div className="rounded-lg border border-border-default bg-bg-surface p-8 text-center">
                       <LoadingPair size="lg" label="Loading bounties..." />
                     </div>
                   ) : bountiesError ? (
-                    <div className="card p-8 text-center space-y-4">
-                      <div className="text-red-600">{bountiesError}</div>
-                      <p className="text-muted text-sm">
+                    <div className="rounded-lg border border-border-default bg-bg-surface p-8 text-center space-y-4">
+                      <div className="text-danger">{bountiesError}</div>
+                      <p className="text-text-secondary text-sm">
                         Make sure the API server is running at {import.meta.env.VITE_API_URL || 'http://localhost:3000'}
                       </p>
                     </div>
@@ -197,9 +211,9 @@ const Home: React.FC = () => {
                       ))}
                     </div>
                   ) : (
-                    <div className="card p-8 text-center space-y-2">
-                      <div className="text-black font-medium">No bounties yet</div>
-                      <p className="text-muted text-sm">Create a bounty on a project issue to get started.</p>
+                    <div className="rounded-lg border border-border-default bg-bg-surface p-8 text-center space-y-2">
+                      <div className="text-text-primary font-medium">No bounties yet</div>
+                      <p className="text-text-secondary text-sm">Create a bounty on a project issue to get started.</p>
                     </div>
                   )}
                 </>

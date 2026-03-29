@@ -1,5 +1,8 @@
 import { Link, useParams } from 'react-router-dom'
+import { FiArrowLeft, FiUser } from 'react-icons/fi'
 import WalletInterface from '../components/WalletInterface'
+import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar'
+import { Card, CardContent } from '../components/ui/card'
 import { ellipseAddress } from '../utils/ellipseAddress'
 
 export default function ProfilePage() {
@@ -9,55 +12,61 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen p-4 md:p-8 lg:p-10">
       <div className="max-w-4xl mx-auto space-y-6">
-        <Link to="/" className="inline-flex items-center gap-2 text-black hover:underline font-medium">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
+        <Link to="/" className="inline-flex items-center gap-2 text-text-secondary hover:text-text-primary transition-colors text-sm">
+          <FiArrowLeft className="w-4 h-4" />
           Back to Home
         </Link>
-        <div className="card p-6 space-y-4">
-          <div className="flex items-center gap-4">
-            <div className="h-16 w-16 border-2 border-black flex items-center justify-center bg-white overflow-hidden">
-              {githubHandle ? (
-                <img src={`https://github.com/${githubHandle}.png`} alt={githubHandle} className="h-full w-full object-cover" />
-              ) : (
-                <svg className="w-7 h-7 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                  />
-                </svg>
-              )}
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-black">@{githubHandle || 'set-github'}</h1>
-              <p className="text-sm text-muted">{walletAddress ? ellipseAddress(walletAddress) : 'Wallet not found'}</p>
-            </div>
-          </div>
 
-          <div className="border-t-2 border-black pt-4 grid sm:grid-cols-3 gap-3">
-            <div className="border-2 border-black p-3 text-center">
-              <div className="text-2xl font-bold text-black">0</div>
-              <div className="text-xs text-muted uppercase">Projects</div>
+        {/* Profile Card */}
+        <Card>
+          <CardContent className="p-6 space-y-4">
+            <div className="flex items-center gap-4">
+              <Avatar className="h-16 w-16">
+                {githubHandle ? (
+                  <AvatarImage src={`https://github.com/${githubHandle}.png`} alt={githubHandle} />
+                ) : null}
+                <AvatarFallback>
+                  <FiUser className="w-7 h-7 text-text-muted" />
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <h1 className="text-2xl font-bold text-text-primary">
+                  @{githubHandle || 'set-github'}
+                </h1>
+                <p className="text-sm text-text-secondary font-mono">
+                  {walletAddress ? ellipseAddress(walletAddress) : 'Wallet not found'}
+                </p>
+              </div>
             </div>
-            <div className="border-2 border-black p-3 text-center">
-              <div className="text-2xl font-bold text-black">0</div>
-              <div className="text-xs text-muted uppercase">Bounties</div>
+
+            {/* Stats */}
+            <div className="border-t border-border-default pt-4 grid sm:grid-cols-3 gap-3">
+              {[
+                { label: 'Projects', value: 0 },
+                { label: 'Bounties', value: 0 },
+                { label: 'Wins', value: 0 },
+              ].map(({ label, value }) => (
+                <div key={label} className="rounded-md border border-border-default bg-bg-elevated p-3 text-center">
+                  <div className="text-2xl font-bold text-accent">{value}</div>
+                  <div className="text-xs text-text-muted uppercase tracking-wider mt-0.5">{label}</div>
+                </div>
+              ))}
             </div>
-            <div className="border-2 border-black p-3 text-center">
-              <div className="text-2xl font-bold text-black">0</div>
-              <div className="text-xs text-muted uppercase">Wins</div>
-            </div>
-          </div>
-        </div>
-        <div className="card p-6 text-center space-y-2">
-          <div className="text-black font-medium">No activity yet</div>
-          <p className="text-sm text-muted">Once this wallet creates projects or completes bounties, they’ll show up here.</p>
-        </div>
+          </CardContent>
+        </Card>
+
+        {/* Activity */}
+        <Card>
+          <CardContent className="p-6 text-center space-y-2">
+            <div className="text-text-primary font-medium">No activity yet</div>
+            <p className="text-sm text-text-secondary">
+              Once this wallet creates projects or completes bounties, they'll show up here.
+            </p>
+          </CardContent>
+        </Card>
+
         {/* Wallet Interface */}
-        <WalletInterface />{' '}
+        <WalletInterface />
       </div>
     </div>
   )

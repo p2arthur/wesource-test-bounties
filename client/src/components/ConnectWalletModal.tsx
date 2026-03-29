@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { SOCIAL_LOGIN_PROVIDERS, useUnifiedWallet } from '../hooks/useUnifiedWallet'
+import { Button } from './ui/button'
 import Modal from './Modal'
 
 interface ConnectWalletModalProps {
@@ -18,37 +19,35 @@ export default function ConnectWalletModal({ open, onClose }: ConnectWalletModal
 
   return (
     <Modal open={open} onClose={onClose} title="Connect Wallet" panelClassName="max-w-md">
-      <div className="space-y-3">
-        <div className="text-sm font-semibold text-black">Connect with Web3Auth</div>
+      <div className="space-y-4">
         <div className="space-y-2">
+          <p className="text-xs text-text-muted uppercase tracking-wider font-semibold">Social Login</p>
           {SOCIAL_LOGIN_PROVIDERS.map((provider) => (
-            <button
+            <Button
               key={provider.id}
-              className="btn-secondary w-full flex items-center gap-2"
+              variant="secondary"
+              className="w-full justify-start"
               onClick={() => connectSocial(provider.id)}
-              type="button"
               disabled={isLoading}
             >
-              <span className="font-medium text-black group-hover:text-white transition-colors text-sm">
-                {isLoading ? 'Connecting...' : `Connect ${provider.label}`}
-              </span>
-            </button>
+              {isLoading ? 'Connecting...' : `Connect with ${provider.label}`}
+            </Button>
           ))}
         </div>
 
         {traditionalWallets && traditionalWallets.length > 0 && (
-          <div className="space-y-2 pt-2 border-t border-black">
-            <div className="text-sm font-semibold text-black">Connect Wallet</div>
+          <div className="space-y-2 pt-3 border-t border-border-default">
+            <p className="text-xs text-text-muted uppercase tracking-wider font-semibold">Wallet Apps</p>
             {traditionalWallets.map((wallet) => (
-              <button
+              <Button
                 key={wallet.id}
-                className="btn-secondary w-full flex items-center gap-2"
+                variant="secondary"
+                className="w-full justify-start"
                 onClick={() => wallet.connect()}
-                type="button"
                 disabled={isLoading}
               >
-                <span className="font-medium text-black group-hover:text-white transition-colors text-sm">{wallet.metadata?.name || wallet.id}</span>
-              </button>
+                {wallet.metadata?.name || wallet.id}
+              </Button>
             ))}
           </div>
         )}

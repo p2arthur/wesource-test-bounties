@@ -1,4 +1,5 @@
 import { ReactNode } from 'react'
+import { FiX } from 'react-icons/fi'
 
 interface ModalProps {
   open: boolean
@@ -23,18 +24,25 @@ export default function Modal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div className={`relative z-10 w-full mx-4 ${panelClassName}`}>
-        <div className="bg-white rounded-md border-b-4 border-2 border-black p-6 space-y-5">
+        <div className="rounded-lg border border-border-default bg-bg-elevated shadow-lg p-6 space-y-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               {icon && (
-                <div className={`w-10 h-10 border-2 border-black flex items-center justify-center ${iconWrapperClassName}`}>{icon}</div>
+                <div className={`w-9 h-9 rounded-md border border-border-default flex items-center justify-center ${iconWrapperClassName}`}>
+                  {icon}
+                </div>
               )}
-              <h3 className="text-xl font-bold text-black">{title}</h3>
+              <h3 className="text-lg font-semibold text-text-primary">{title}</h3>
             </div>
-            <button type="button" onClick={onClose} className="btn-secondary w-8 h-8 p-0 flex items-center justify-center">
-              x
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-sm p-1 text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
+            >
+              <FiX className="w-5 h-5" />
+              <span className="sr-only">Close</span>
             </button>
           </div>
           {children}

@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 
 interface AnimatedNumberProps {
   value: number;
-  duration?: number; // ms
+  duration?: number;
   decimals?: number;
   className?: string;
+  formatValue?: (v: number) => string;
 }
 
-export default function AnimatedNumber({ value, duration = 1200, decimals = 0, className = '' }: AnimatedNumberProps) {
+export default function AnimatedNumber({ value, duration = 1200, decimals = 0, className = '', formatValue }: AnimatedNumberProps) {
   const [display, setDisplay] = useState(value);
   const raf = useRef<number>();
   const start = useRef<number>();
@@ -36,8 +37,12 @@ export default function AnimatedNumber({ value, duration = 1200, decimals = 0, c
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, duration]);
 
+  const rendered = formatValue
+    ? formatValue(display)
+    : display.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+
   return (
-    <span className={className}>{display.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}</span>
+    <span className={`tabular-nums ${className}`}>{rendered}</span>
   );
 }
 

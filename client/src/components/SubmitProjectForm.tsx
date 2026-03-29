@@ -1,6 +1,9 @@
 import { FormEvent, useState } from 'react'
+import { FiPlus, FiX } from 'react-icons/fi'
 import { useProjects } from '../contexts/ProjectContext'
 import { useUnifiedWallet } from '../hooks/useUnifiedWallet'
+import { Button } from './ui/button'
+import { Input } from './ui/input'
 import LoadingPair from './LoadingPair'
 import Modal from './Modal'
 import Tooltip from './Tooltip'
@@ -64,14 +67,9 @@ export default function SubmitProjectForm({ openModal, closeModal }: SubmitProje
       })
 
       setMessage('Project submitted successfully!')
-      // Reset form
       resetForm()
-      // Refresh the projects list
       await refreshProjects()
-      // Close modal after a brief delay to show success message
-      setTimeout(() => {
-        handleClose()
-      }, 1500)
+      setTimeout(() => { handleClose() }, 1500)
     } catch (error) {
       console.error('Failed to create project:', error)
       setMessage(error instanceof Error ? error.message : 'Failed to create project. Please try again.')
@@ -102,102 +100,90 @@ export default function SubmitProjectForm({ openModal, closeModal }: SubmitProje
       onClose={handleClose}
       title="Submit Project"
       panelClassName="max-w-lg max-h-[90vh] overflow-y-auto"
-      icon={
-        <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-        </svg>
-      }
+      icon={<FiPlus className="w-4 h-4 text-accent" />}
     >
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="grid md:grid-cols-2 gap-4">
-          <label className="flex flex-col gap-2">
-            <span className="text-sm font-medium text-black">Name *</span>
-            <input
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-text-primary">Name *</label>
+            <Input
               required
-              className="input-field"
               value={formState.name}
               onChange={(e) => setFormState({ ...formState, name: e.target.value })}
               placeholder="My Awesome Project"
               disabled={isSubmitting}
             />
-          </label>
+          </div>
 
-          <label className="flex flex-col gap-2">
-            <span className="text-sm font-medium text-black">Category *</span>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-text-primary">Category *</label>
             <select
-              className="input-field"
+              className="flex h-9 w-full rounded-md border border-border-default bg-bg-elevated px-3 py-1 text-sm text-text-primary shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/50 disabled:opacity-50"
               value={formState.category}
               onChange={(e) => setFormState({ ...formState, category: e.target.value })}
               disabled={isSubmitting}
             >
               {categories.map((option) => (
-                <option key={option} value={option}>
+                <option key={option} value={option} className="bg-bg-elevated">
                   {option}
                 </option>
               ))}
             </select>
-          </label>
+          </div>
         </div>
 
-        <label className="flex flex-col gap-2">
-          <span className="text-sm font-medium text-black">Description</span>
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium text-text-primary">Description</label>
           <textarea
-            className="input-field resize-none"
+            className="flex w-full rounded-md border border-border-default bg-bg-elevated px-3 py-2 text-sm text-text-primary shadow-sm placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent/50 disabled:opacity-50 resize-none"
             value={formState.description}
             onChange={(e) => setFormState({ ...formState, description: e.target.value })}
             placeholder="What does your project do?"
             rows={3}
             disabled={isSubmitting}
           />
-        </label>
+        </div>
 
         <div className="space-y-3">
-          <span className="text-sm font-medium text-black">
-            GitHub Repository URLs
-            <Tooltip text="Add one or more GitHub repositories. The API will automatically fetch metadata and contributors.">
-              <span className="ml-2 inline-flex h-4 w-4 items-center justify-center border border-black text-[10px]">?</span>
-            </Tooltip>
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-text-primary">GitHub Repository URLs</span>
+            <Tooltip text="Add one or more GitHub repositories. The API will automatically fetch metadata and contributors." />
+          </div>
           {githubUrls.map((url, index) => (
             <div key={index} className="flex gap-2">
-              <input
-                className="input-field flex-1"
+              <Input
                 value={url}
                 onChange={(e) => updateGithubUrl(index, e.target.value)}
                 placeholder="https://github.com/owner/repo"
                 disabled={isSubmitting}
               />
               {githubUrls.length > 1 && (
-                <button type="button" onClick={() => removeGithubUrl(index)} className="btn-secondary px-3" disabled={isSubmitting}>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+                <Button type="button" variant="ghost" size="icon" onClick={() => removeGithubUrl(index)} disabled={isSubmitting}>
+                  <FiX className="w-4 h-4" />
+                </Button>
               )}
             </div>
           ))}
-          <button type="button" onClick={addGithubField} className="btn-secondary text-sm flex items-center gap-2" disabled={isSubmitting}>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
+          <Button type="button" variant="ghost" size="sm" className="gap-2" onClick={addGithubField} disabled={isSubmitting}>
+            <FiPlus className="w-4 h-4" />
             Add another repo
-          </button>
+          </Button>
         </div>
 
-        <button
+        <Button
           type="submit"
-          className="btn-primary w-full py-3 text-base disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full"
           disabled={isSubmitting}
         >
           {isSubmitting ? <LoadingPair size="sm" label="Submitting..." /> : 'Submit Project'}
-        </button>
+        </Button>
 
         {message && (
-          <div
-            className={`p-3 border-2 border-black text-sm ${
-              message.includes('success') ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
-            }`}
-          >
+          <div className={`rounded-md border p-3 text-sm ${
+            message.includes('success')
+              ? 'border-success/40 bg-success/10 text-success'
+              : 'border-danger/40 bg-danger/10 text-danger'
+          }`}>
             {message}
           </div>
         )}

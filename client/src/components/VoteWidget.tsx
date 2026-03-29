@@ -10,15 +10,17 @@ export default function VoteWidget({ voteKey, size = 'sm', className = '' }: Vot
   const { getVotes, upvote, downvote } = useVotes()
   const votes = getVotes(voteKey)
 
-  const buttonSize = size === 'sm' ? 'px-2 py-1 text-xs' : 'px-3 py-2 text-sm'
+  const base = 'flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-xs font-medium transition-colors'
+  const upClass = `${base} text-text-secondary hover:bg-success/15 hover:text-success`
+  const downClass = `${base} text-text-muted hover:bg-danger/15 hover:text-danger`
 
   return (
-    <div className={`flex items-center gap-2 ${className}`}>
-      <button type="button" className="text-green-600" onClick={() => upvote(voteKey)}>
-        ▲<span>{votes.up}</span>
+    <div className={`flex items-center gap-1 ${className}`}>
+      <button type="button" className={upClass} onClick={(e) => { e.preventDefault(); upvote(voteKey) }}>
+        ▲ <span>{votes.up}</span>
       </button>
-      <button type="button" className="text-red-600" onClick={() => downvote(voteKey)}>
-        ▼<span>{votes.down}</span>
+      <button type="button" className={downClass} onClick={(e) => { e.preventDefault(); downvote(voteKey) }}>
+        ▼ <span>{votes.down}</span>
       </button>
     </div>
   )

@@ -170,6 +170,77 @@ export class AlgorandService implements OnModuleInit {
   }
 
   /**
+   * Refunds bounty to the creator's wallet address
+   */
+  async refundBounty(repoOwner: string, repoName: string, issueNumber: number, creatorWallet: string): Promise<{ txId: string }> {
+    if (!this.algorand || !this.appSpec) {
+      throw new Error('Algorand service not initialized. Check environment configuration.');
+    }
+
+    const bountyId = this.computeBountyId(repoOwner, repoName, issueNumber);
+    this.logger.log(`Refunding bounty ${bountyId} to ${creatorWallet}`);
+
+    const boxKeyPrefix = Buffer.from('b__');
+    const bountyIdBytes = Buffer.alloc(8);
+    bountyIdBytes.writeBigUInt64BE(bountyId);
+    const boxKey = Buffer.concat([boxKeyPrefix, bountyIdBytes]);
+
+    const appClient = this.algorand.client.getAppClientById({
+      appSpec: this.appSpec,
+      appId: this.appId,
+      defaultSender: this.managerAddress,
+    });
+
+    const result = await appClient.send.call({
+      method: 'refund_bounty',
+      args: [bountyId, creatorWallet],
+      boxReferences: [{ appId: this.appId, name: boxKey }],
+    });
+
+    this.logger.log(`Bounty ${bountyId} refunded successfully. TxID: ${result.txIds[0]}`);
+    return { txId: result.txIds[0] };
+  }
+
+  /**
+   * Revokes bounty and sends funds to recipient (usually creator)
+   */
+  async revokeBounty(repoOwner: string, repoName: string, issueNumber: number, recipient: string): Promise<{ txId: string }> {
+    if (!this.algorand || !this.appSpec) {
+      throw new Error('Algorand service not initialized. Check environment configuration.');
+    }
+
+    const bountyId = this.computeBountyId(repoOwner, repoName, issueNumber);
+    this.logger.log(`Revoking bounty ${bountyId} to ${recipient}`);
+
+    const boxKeyPrefix = Buffer.from('b__');
+    const bountyIdBytes = Buffer.alloc(8);
+    bountyIdBytes.writeBigUInt64BE(bountyId);
+    const boxKey = Buffer.concat([boxKeyPrefix, bountyIdBytes]);
+
+    const appClient = this.algorand.client.getAppClientById({
+      appSpec: this.appSpec,
+      appId: this.appId,
+      defaultSender: this.managerAddress,
+    });
+
+    const result = await appClient.send.call({
+      method: 'revoke_bounty',
+      args: [bountyId, recipient],
+      boxReferences: [{ appId: this.appId, name: boxKey }],
+    });
+
+    this.logger.log(`Bounty ${bountyId} revoked successfully. TxID: ${result.txIds[0]}`);
+    return { txId: result.txIds[0] };
+  }
+
+  /**
+   * Returns the manager address for external reference
+   */
+  getManagerAddress(): string | null {
+    return this.managerAddress ?? null;
+  }
+
+  /**
    * Fetches all bounty boxes from the on-chain contract and parses their data.
    * Returns an array of on-chain bounty states.
    */

@@ -317,6 +317,7 @@ export class OracleService {
     }
 
     // Upsert winner and update bounty status
+    let winnerWallet: string | null = null;
     await this.prisma.$transaction(async (tx) => {
       const winner = await tx.user.upsert({
         where: { githubId: winnerId },
@@ -328,6 +329,8 @@ export class OracleService {
           username: winnerLogin ?? undefined,
         },
       });
+
+      winnerWallet = winner.wallet;
 
       await tx.bounty.update({
         where: { id: bounty.id },
@@ -341,7 +344,11 @@ export class OracleService {
       });
     });
 
-    this.logger.log(`Bounty ${bounty.id} (${owner}/${repo}#${issueNumber}) marked READY_FOR_CLAIM: winner=${winnerLogin} (${winnerId})`);
+    if (!winnerWallet) {
+      this.logger.warn(`Bounty ${bounty.id} (${owner}/${repo}#${issueNumber}) is ready but winner ${winnerLogin} has no wallet linked`);
+    } else {
+      this.logger.log(`Bounty ${bounty.id} (${owner}/${repo}#${issueNumber}) marked READY_FOR_CLAIM: winner=${winnerLogin} (${winnerId})`);
+    }
 
     return {
       bountyId: bounty.id,

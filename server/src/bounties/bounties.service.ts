@@ -3,7 +3,7 @@ import cron from 'node-cron';
 import { createHash } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { GithubService } from '../github/github.service';
-import { AlgorandService } from '../algorand/algorand.service';
+import { AlgorandService, OnChainBounty } from '../algorand/algorand.service';
 import { OracleService } from '../oracle/oracle.service';
 import { CreateBountyDto, ClaimBountyDto } from './dto';
 
@@ -59,12 +59,14 @@ export class BountiesService implements OnModuleInit {
       throw new HttpException(`A bounty already exists for this issue: ${issueUrl}`, HttpStatus.CONFLICT);
     }
 
+    const amountMicroAlgos = Math.round(amount * 1_000_000);
+
     const bounty = await this.prisma.bounty.create({
       data: {
         issueNumber: issueNumber,
         bountyKey,
         issueUrl,
-        amount,
+        amount: amountMicroAlgos,
         creatorWallet,
         status: 'OPEN',
         repositoryId: repository.id,
@@ -79,7 +81,7 @@ export class BountiesService implements OnModuleInit {
       repoName,
       issueNumber: bounty.issueNumber,
       issueUrl: bounty.issueUrl,
-      amount: bounty.amount,
+      amount: bounty.amount / 1_000_000,
       creatorWallet: bounty.creatorWallet,
       status: bounty.status,
       winnerId: bounty.winnerId,
@@ -110,7 +112,7 @@ export class BountiesService implements OnModuleInit {
         repoName: repoInfo?.repo ?? '',
         issueNumber: bounty.issueNumber,
         issueUrl: bounty.issueUrl,
-        amount: bounty.amount,
+        amount: bounty.amount / 1_000_000,
         creatorWallet: bounty.creatorWallet,
         status: bounty.status,
         winnerId: bounty.winnerId,
@@ -120,8 +122,8 @@ export class BountiesService implements OnModuleInit {
     });
   }
 
-  async claim(claimBountyDto: ClaimBountyDto) {
-    const { bountyId, githubId, walletAddress } = claimBountyDto;
+  async claim(claimBountyDto: ClaimBountyDto, authWallet: string) {
+    const { bountyId } = claimBountyDto;
 
     // 1. Find the bounty
     const bounty = await this.prisma.bounty.findUnique({
@@ -150,9 +152,13 @@ export class BountiesService implements OnModuleInit {
       throw new HttpException('Bounty has no winner assigned', HttpStatus.BAD_REQUEST);
     }
 
-    if (bounty.winner.githubId !== githubId) {
+    if (!bounty.winner.wallet) {
+      throw new HttpException('Winner has not linked a wallet. Please link your wallet first.', HttpStatus.FORBIDDEN);
+    }
+
+    if (bounty.winner.wallet !== authWallet) {
       throw new HttpException(
-        'You are not the winner of this bounty. Only the PR author who closed the issue can claim.',
+        'You are not the winner of this bounty. Only the authenticated wallet matching the winner can claim.',
         HttpStatus.FORBIDDEN,
       );
     }
@@ -171,7 +177,7 @@ export class BountiesService implements OnModuleInit {
     // 6. Execute on-chain withdrawal
     let txId: string;
     try {
-      const result = await this.algorandService.withdrawBounty(repoInfo.owner, repoInfo.repo, bounty.issueNumber, walletAddress);
+      const result = await this.algorandService.withdrawBounty(repoInfo.owner, repoInfo.repo, bounty.issueNumber, authWallet);
       txId = result.txId;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -186,21 +192,145 @@ export class BountiesService implements OnModuleInit {
         status: 'CLAIMED',
         claimedAt: new Date(),
         winner: {
-          update: {
-            wallet: walletAddress,
-          },
+          connect: { id: bounty.winner.id },
         },
       },
     });
 
-    this.logger.log(`Bounty ${bountyId} claimed by GitHub user ${githubId}. TxID: ${txId}`);
+    this.logger.log(`Bounty ${bountyId} claimed by wallet ${authWallet}. TxID: ${txId}`);
 
     return {
       id: updatedBounty.id,
       status: updatedBounty.status,
       claimedAt: updatedBounty.claimedAt,
       txId,
-      walletAddress,
+      walletAddress: authWallet,
+    };
+  }
+
+  async refund(bountyId: number, authWallet: string) {
+    // 1. Find the bounty
+    const bounty = await this.prisma.bounty.findUnique({
+      where: { id: bountyId },
+      include: {
+        repository: { select: { githubUrl: true } },
+      },
+    });
+
+    if (!bounty) {
+      throw new HttpException('Bounty not found', HttpStatus.NOT_FOUND);
+    }
+
+    // 2. Check if bounty is refundable
+    if (bounty.status !== 'REFUNDABLE') {
+      throw new HttpException(`Bounty is not refundable. Current status: ${bounty.status}`, HttpStatus.BAD_REQUEST);
+    }
+
+    // 3. Verify the authenticated wallet is the creator
+    if (bounty.creatorWallet !== authWallet) {
+      throw new HttpException('You are not the creator of this bounty', HttpStatus.FORBIDDEN);
+    }
+
+    // 4. Check if Algorand service is configured
+    if (!this.algorandService.isConfigured()) {
+      throw new HttpException('Blockchain service not configured. Contact administrator.', HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
+    // 5. Parse repo info for on-chain refund
+    const repoInfo = this.githubService.parseGithubUrl(bounty.repository.githubUrl);
+    if (!repoInfo) {
+      throw new HttpException('Invalid repository URL', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    // 6. Execute on-chain refund
+    let txId: string;
+    try {
+      const result = await this.algorandService.refundBounty(repoInfo.owner, repoInfo.repo, bounty.issueNumber, authWallet);
+      txId = result.txId;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Failed to refund bounty on-chain: ${message}`);
+      throw new HttpException(`Blockchain refund failed: ${message}`, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    // 7. Update database: mark as refunded
+    const updatedBounty = await this.prisma.bounty.update({
+      where: { id: bountyId },
+      data: { status: 'REFUNDED' },
+    });
+
+    this.logger.log(`Bounty ${bountyId} refunded by wallet ${authWallet}. TxID: ${txId}`);
+
+    return {
+      id: updatedBounty.id,
+      status: updatedBounty.status,
+      txId,
+      walletAddress: authWallet,
+    };
+  }
+
+  async revoke(bountyId: number, authWallet: string) {
+    // 1. Find the bounty
+    const bounty = await this.prisma.bounty.findUnique({
+      where: { id: bountyId },
+      include: {
+        repository: { select: { githubUrl: true } },
+      },
+    });
+
+    if (!bounty) {
+      throw new HttpException('Bounty not found', HttpStatus.NOT_FOUND);
+    }
+
+    // 2. Check if bounty is eligible for revocation
+    if (bounty.status !== 'REFUNDABLE' && bounty.status !== 'OPEN') {
+      throw new HttpException(`Bounty is not eligible for revocation. Current status: ${bounty.status}`, HttpStatus.BAD_REQUEST);
+    }
+
+    // 3. Verify the authenticated wallet is the manager
+    const managerAddress = this.algorandService.getManagerAddress();
+    if (!managerAddress) {
+      throw new HttpException('Manager address not configured', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+    if (authWallet !== managerAddress) {
+      throw new HttpException('You are not the manager of this bounty', HttpStatus.FORBIDDEN);
+    }
+
+    // 4. Check if Algorand service is configured
+    if (!this.algorandService.isConfigured()) {
+      throw new HttpException('Blockchain service not configured. Contact administrator.', HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
+    // 5. Parse repo info for on-chain revocation
+    const repoInfo = this.githubService.parseGithubUrl(bounty.repository.githubUrl);
+    if (!repoInfo) {
+      throw new HttpException('Invalid repository URL', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    // 6. Execute on-chain revocation (funds returned to creator)
+    let txId: string;
+    try {
+      const result = await this.algorandService.revokeBounty(repoInfo.owner, repoInfo.repo, bounty.issueNumber, bounty.creatorWallet);
+      txId = result.txId;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Failed to revoke bounty on-chain: ${message}`);
+      throw new HttpException(`Blockchain revocation failed: ${message}`, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    // 7. Update database: mark as cancelled
+    const updatedBounty = await this.prisma.bounty.update({
+      where: { id: bountyId },
+      data: { status: 'CANCELLED' },
+    });
+
+    this.logger.log(`Bounty ${bountyId} revoked by manager ${authWallet}. TxID: ${txId}`);
+
+    return {
+      id: updatedBounty.id,
+      status: updatedBounty.status,
+      txId,
+      walletAddress: authWallet,
     };
   }
 
@@ -208,8 +338,7 @@ export class BountiesService implements OnModuleInit {
     // Run Oracle validation every 5 minutes for faster winner detection
     cron.schedule('*/5 * * * *', async () => {
       await this.runOracleValidation();
-      // Also sync from on-chain to catch any missed updates
-      await this.syncFromChain();
+      await this.reconcileWithChain();
     });
 
     this.logger.log('Oracle validation scheduled to run every 5 minutes.');
@@ -266,7 +395,7 @@ export class BountiesService implements OnModuleInit {
         repoName: repoInfo?.repo ?? '',
         issueNumber: bounty.issueNumber,
         issueUrl: bounty.issueUrl,
-        amount: bounty.amount,
+        amount: bounty.amount / 1_000_000,
         creatorWallet: bounty.creatorWallet,
         status: bounty.status,
         winnerId: bounty.winnerId,
@@ -278,113 +407,119 @@ export class BountiesService implements OnModuleInit {
   }
 
   /**
-   * Syncs bounties from on-chain state to the database.
-   * Updates status based on on-chain paid status and winner address.
-   * Returns a summary of changes made.
+   * Reconciles the database with on-chain state.
+   *
+   * Goes DB→chain (not chain→DB) because the djb2 hash stored on-chain is
+   * one-way: we cannot recover repo/issue metadata from a hash, so the DB
+   * must be the starting point. For each active DB bounty we compute its
+   * bountyId, look it up in a pre-fetched on-chain map, and apply any
+   * status updates needed.
+   *
+   * Status transitions applied:
+   *   OPEN / READY_FOR_CLAIM  →  CLAIMED         (on-chain isPaid = true)
+   *   OPEN                    →  READY_FOR_CLAIM  (on-chain winnerAddress set, not yet paid)
    */
-  async syncFromChain(): Promise<{
+  async reconcileWithChain(): Promise<{
     checked: number;
-    updated: number;
-    newOnChain: number;
+    claimedSynced: number;
+    readyForClaimSynced: number;
+    notOnChain: number;
+    valueMismatches: { bountyId: number; dbAmountMicroAlgos: number; chainAmountMicroAlgos: number }[];
     errors: string[];
   }> {
-    const result = {
+    const report = {
       checked: 0,
-      updated: 0,
-      newOnChain: 0,
+      claimedSynced: 0,
+      readyForClaimSynced: 0,
+      notOnChain: 0,
+      valueMismatches: [] as { bountyId: number; dbAmountMicroAlgos: number; chainAmountMicroAlgos: number }[],
       errors: [] as string[],
     };
 
     if (!this.algorandService.isReadConfigured()) {
-      this.logger.warn('Algorand service not configured for reading. Skipping on-chain sync.');
-      return result;
+      this.logger.warn('Algorand service not configured for reading. Skipping reconciliation.');
+      return report;
     }
 
-    try {
-      // Fetch all on-chain bounties
-      const onChainBounties = await this.algorandService.getOnChainBounties();
-      result.checked = onChainBounties.length;
+    // Fetch all on-chain boxes in one call → map by bountyId for O(1) lookup
+    const onChainBounties = await this.algorandService.getOnChainBounties();
+    const onChainMap = new Map<bigint, OnChainBounty>();
+    for (const b of onChainBounties) {
+      onChainMap.set(b.bountyId, b);
+    }
 
-      if (onChainBounties.length === 0) {
-        this.logger.log('No on-chain bounties found.');
-        return result;
+    // Only reconcile non-terminal bounties
+    const dbBounties = await this.prisma.bounty.findMany({
+      where: { status: { in: ['OPEN', 'READY_FOR_CLAIM'] } },
+      include: { repository: { select: { githubUrl: true } } },
+    });
+
+    report.checked = dbBounties.length;
+
+    for (const bounty of dbBounties) {
+      const repoInfo = this.githubService.parseGithubUrl(bounty.repository.githubUrl);
+      if (!repoInfo) {
+        report.errors.push(`Bounty ${bounty.id}: invalid repository URL`);
+        continue;
       }
 
-      // Get all database bounties
-      const dbBounties = await this.prisma.bounty.findMany({
-        include: {
-          repository: {
-            select: {
-              githubUrl: true,
-            },
-          },
-        },
-      });
+      const bountyId = this.computeBountyId(repoInfo.owner, repoInfo.repo, bounty.issueNumber);
+      const onChain = onChainMap.get(bountyId);
 
-      // Create a map of bountyKey -> db bounty for quick lookup
-      const dbBountyMap = new Map<string, (typeof dbBounties)[0]>();
-      for (const bounty of dbBounties) {
-        dbBountyMap.set(bounty.bountyKey, bounty);
+      if (!onChain) {
+        // DB bounty exists but no matching box on-chain — it may not have been
+        // funded yet, or the transaction is still pending.
+        report.notOnChain++;
+        this.logger.debug(`Bounty ${bounty.id} (id=${bountyId}) has no on-chain box yet.`);
+        continue;
       }
 
-      // Process each on-chain bounty
-      for (const onChainBounty of onChainBounties) {
-        // Find matching DB bounty by computing possible bounty keys
-        // Since we don't have repo info from on-chain, we need to match by bountyId
-        const matchingDbBounty = dbBounties.find((db) => {
-          const repoInfo = this.githubService.parseGithubUrl(db.repository.githubUrl);
-          if (!repoInfo) return false;
-          const computedId = this.computeBountyId(repoInfo.owner, repoInfo.repo, db.issueNumber);
-          return computedId === onChainBounty.bountyId;
+      // Flag amount discrepancies (microAlgos stored in DB vs chain)
+      const chainAmount = Number(onChain.totalValue);
+      if (chainAmount !== bounty.amount) {
+        report.valueMismatches.push({
+          bountyId: bounty.id,
+          dbAmountMicroAlgos: bounty.amount,
+          chainAmountMicroAlgos: chainAmount,
         });
-
-        if (!matchingDbBounty) {
-          // On-chain bounty exists but not in our database
-          result.newOnChain++;
-          this.logger.debug(`On-chain bounty ${onChainBounty.bountyId} not found in database.`);
-          continue;
-        }
-
-        // Check if we need to update status
-        const needsUpdate =
-          (onChainBounty.isPaid && matchingDbBounty.status !== 'CLAIMED') ||
-          (!onChainBounty.isPaid && onChainBounty.winnerAddress && matchingDbBounty.status === 'OPEN');
-
-        if (!needsUpdate) {
-          continue;
-        }
-
-        try {
-          if (onChainBounty.isPaid) {
-            // Bounty was paid on-chain, update DB to CLAIMED
-            await this.prisma.bounty.update({
-              where: { id: matchingDbBounty.id },
-              data: {
-                status: 'CLAIMED',
-                claimedAt: matchingDbBounty.claimedAt ?? new Date(),
-              },
-            });
-            this.logger.log(`Synced bounty ${matchingDbBounty.id} to CLAIMED (on-chain paid).`);
-            result.updated++;
-          } else if (onChainBounty.winnerAddress && matchingDbBounty.status === 'OPEN') {
-            // On-chain has winner set but not paid - unusual state, log it
-            this.logger.warn(`On-chain bounty ${matchingDbBounty.id} has winner ${onChainBounty.winnerAddress} but not paid yet.`);
-          }
-        } catch (error) {
-          const message = error instanceof Error ? error.message : 'Unknown error';
-          result.errors.push(`Failed to update bounty ${matchingDbBounty.id}: ${message}`);
-          this.logger.error(`Failed to update bounty ${matchingDbBounty.id}: ${message}`);
-        }
+        this.logger.warn(`Bounty ${bounty.id} amount mismatch: DB=${bounty.amount} chain=${chainAmount} microAlgos`);
       }
 
-      this.logger.log(`On-chain sync complete: checked=${result.checked}, updated=${result.updated}, newOnChain=${result.newOnChain}`);
-      return result;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      this.logger.error(`On-chain sync failed: ${message}`);
-      result.errors.push(`Sync failed: ${message}`);
-      return result;
+      try {
+        if (onChain.isPaid) {
+          await this.prisma.bounty.update({
+            where: { id: bounty.id },
+            data: { status: 'CLAIMED', claimedAt: bounty.claimedAt ?? new Date() },
+          });
+          report.claimedSynced++;
+          this.logger.log(`Reconciled bounty ${bounty.id} → CLAIMED (on-chain paid).`);
+        } else if (onChain.winnerAddress && bounty.status === 'OPEN') {
+          // Winner set on-chain but DB not yet updated — link if we know the user
+          const winner = await this.prisma.user.findFirst({ where: { wallet: onChain.winnerAddress } });
+          await this.prisma.bounty.update({
+            where: { id: bounty.id },
+            data: {
+              status: 'READY_FOR_CLAIM',
+              ...(winner && { winnerId: winner.id }),
+            },
+          });
+          report.readyForClaimSynced++;
+          this.logger.log(`Reconciled bounty ${bounty.id} → READY_FOR_CLAIM (on-chain winner: ${onChain.winnerAddress}).`);
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        report.errors.push(`Bounty ${bounty.id}: ${message}`);
+        this.logger.error(`Failed to reconcile bounty ${bounty.id}: ${message}`);
+      }
     }
+
+    this.logger.log(
+      `Reconciliation complete: checked=${report.checked}, claimed=${report.claimedSynced}, ` +
+        `readyForClaim=${report.readyForClaimSynced}, notOnChain=${report.notOnChain}, ` +
+        `mismatches=${report.valueMismatches.length}, errors=${report.errors.length}`,
+    );
+
+    return report;
   }
 
   /**

@@ -1,12 +1,17 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
-import { ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, UseGuards } from '@nestjs/common';
+import { ApiBody, ApiOperation, ApiParam, ApiResponse, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { BountiesService } from './bounties.service';
-import { CreateBountyDto, BountyResponseDto, ClaimBountyDto } from './dto';
+import { CreateBountyDto, BountyResponseDto, ClaimBountyDto, LinkWalletDto } from './dto';
+import { AuthGuard, WalletAddress } from '../auth';
+import { AuthService } from '../auth/auth.service';
 
 @ApiTags('Bounties')
 @Controller('api/bounties')
 export class BountiesController {
-  constructor(private readonly bountiesService: BountiesService) {}
+  constructor(
+    private readonly bountiesService: BountiesService,
+    private readonly authService: AuthService,
+  ) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -98,30 +103,147 @@ export class BountiesController {
     status: 503,
     description: 'Blockchain service unavailable',
   })
-  claim(@Body() claimBountyDto: ClaimBountyDto) {
-    return this.bountiesService.claim(claimBountyDto);
+  claim(@Body() claimBountyDto: ClaimBountyDto, @WalletAddress() wallet: string) {
+    return this.bountiesService.claim(claimBountyDto, wallet);
   }
 
   @Post('sync')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Sync bounties from on-chain state',
-    description: 'Reads all bounty boxes from the smart contract and updates the database to match on-chain state.',
+    summary: 'Reconcile database with on-chain state',
+    description:
+      'For each active (OPEN/READY_FOR_CLAIM) bounty in the database, computes its on-chain ID, ' +
+      'looks it up in the smart contract box storage, and applies any status updates. ' +
+      'Transitions: OPEN→CLAIMED (paid on-chain), OPEN→READY_FOR_CLAIM (winner set on-chain). ' +
+      'Also reports value mismatches between DB and chain.',
   })
   @ApiResponse({
     status: 200,
-    description: 'Sync completed successfully',
+    description: 'Reconciliation completed',
     schema: {
       type: 'object',
       properties: {
-        checked: { type: 'number', description: 'Number of on-chain bounties checked' },
-        updated: { type: 'number', description: 'Number of database records updated' },
-        newOnChain: { type: 'number', description: 'Number of on-chain bounties not in database' },
+        checked: { type: 'number', description: 'Active DB bounties evaluated' },
+        claimedSynced: { type: 'number', description: 'Updated to CLAIMED (on-chain paid)' },
+        readyForClaimSynced: { type: 'number', description: 'Updated to READY_FOR_CLAIM (winner set on-chain)' },
+        notOnChain: { type: 'number', description: 'DB bounties with no matching on-chain box yet' },
+        valueMismatches: {
+          type: 'array',
+          description: 'Bounties where DB amount differs from chain amount',
+          items: {
+            type: 'object',
+            properties: {
+              bountyId: { type: 'number' },
+              dbAmountMicroAlgos: { type: 'number' },
+              chainAmountMicroAlgos: { type: 'number' },
+            },
+          },
+        },
         errors: { type: 'array', items: { type: 'string' }, description: 'Any errors encountered' },
       },
     },
   })
   sync() {
-    return this.bountiesService.syncFromChain();
+    return this.bountiesService.reconcileWithChain();
+  }
+
+  @Post('link-wallet')
+  @UseGuards(AuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiSecurity('bearer')
+  @ApiOperation({
+    summary: 'Link authenticated wallet to GitHub identity',
+    description: 'Links the authenticated wallet address to a GitHub user identity for bounty claiming.',
+  })
+  @ApiBody({ type: LinkWalletDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Wallet linked successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid request data',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Authentication required',
+  })
+  async linkWallet(@Body() dto: LinkWalletDto, @WalletAddress() wallet: string) {
+    await this.authService.linkIdentity(wallet, dto.githubUsername, dto.githubId);
+    return { message: 'Wallet linked successfully' };
+  }
+
+  @Post(':id/refund')
+  @UseGuards(AuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiSecurity('bearer')
+  @ApiOperation({
+    summary: 'Refund a bounty',
+    description: 'Allows the creator to reclaim funds from a REFUNDABLE bounty.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Bounty ID',
+    type: Number,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Bounty refunded successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bounty not refundable or invalid request',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'User is not the creator of this bounty',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Bounty not found',
+  })
+  @ApiResponse({
+    status: 503,
+    description: 'Blockchain service unavailable',
+  })
+  async refund(@Param('id') id: string, @WalletAddress() wallet: string) {
+    return this.bountiesService.refund(Number(id), wallet);
+  }
+
+  @Post(':id/revoke')
+  @UseGuards(AuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiSecurity('bearer')
+  @ApiOperation({
+    summary: 'Revoke a bounty',
+    description: 'Allows the manager to reclaim funds from an expired bounty.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Bounty ID',
+    type: Number,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Bounty revoked successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bounty not eligible for revocation or invalid request',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'User is not the manager',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Bounty not found',
+  })
+  @ApiResponse({
+    status: 503,
+    description: 'Blockchain service unavailable',
+  })
+  async revoke(@Param('id') id: string, @WalletAddress() wallet: string) {
+    return this.bountiesService.revoke(Number(id), wallet);
   }
 }

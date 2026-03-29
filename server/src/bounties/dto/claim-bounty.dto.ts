@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsInt, IsNotEmpty, IsString, Min } from 'class-validator';
+import { IsInt, IsString, Min } from 'class-validator';
 
 export class ClaimBountyDto {
   @ApiProperty({
@@ -11,18 +11,9 @@ export class ClaimBountyDto {
   bountyId: number;
 
   @ApiProperty({
-    description: 'The GitHub ID of the user claiming the bounty',
-    example: 12345678,
-  })
-  @IsInt()
-  @Min(1)
-  githubId: number;
-
-  @ApiProperty({
-    description: 'The Algorand wallet address to receive the bounty',
-    example: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+    description: 'The Algorand wallet address of the claimer',
+    example: 'ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890',
   })
   @IsString()
-  @IsNotEmpty()
   walletAddress: string;
 }

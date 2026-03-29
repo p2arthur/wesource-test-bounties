@@ -36,7 +36,7 @@ model Bounty {
   issueNumber Int // e.g., 424
   issueUrl    String       @unique // e.g., https://github.com/org/repo/issues/424
   bountyKey   String       @unique @map("bounty_key")
-  amount      Float
+  amount      Int
   status      BountyStatus @default(OPEN)
 
   // Relations
@@ -81,4 +81,5 @@ enum BountyStatus {
   CLAIMED
   CANCELLED // Issue closed as not_planned
   REFUNDABLE // Issue cancelled, funds can be refunded
+  REFUNDED // Funds returned to creator
 }

@@ -16,21 +16,27 @@ describe('getAuthHeaders', () => {
   })
 
   it('should return authorization header for traditional wallet with signMessage', async () => {
-    const mockSignMessage = jest.fn().mockResolvedValue('test-signature')
+    const mockSignMessage = jest.fn().mockResolvedValue({
+      signature: 'test-signature',
+      message: 'test-message'
+    })
     const result = await getAuthHeaders('traditional', 'test-address', mockSignMessage)
     
-    expect(mockSignMessage).toHaveBeenCalledWith('test-address')
+    expect(mockSignMessage).toHaveBeenCalled()
     expect(result).toEqual({
-      'Authorization': 'Wallet test-address:test-signature:test-address'
+      'Authorization': 'Wallet test-address:test-signature:test-message'
     })
   })
 
   it('should handle signMessage returning different signature', async () => {
-    const mockSignMessage = jest.fn().mockResolvedValue('different-signature')
+    const mockSignMessage = jest.fn().mockResolvedValue({
+      signature: 'different-signature',
+      message: 'different-message'
+    })
     const result = await getAuthHeaders('traditional', 'test-address', mockSignMessage)
     
     expect(result).toEqual({
-      'Authorization': 'Wallet test-address:different-signature:test-address'
+      'Authorization': 'Wallet test-address:different-signature:different-message'
     })
   })
 })

@@ -1,5 +1,6 @@
 import LiveFeedWedge from './LiveFeedWedge'
 import WalletMenu from './WalletMenu'
+import NotificationBell from './NotificationBell'
 
 export default function HeaderBar() {
   return (
@@ -10,7 +11,10 @@ export default function HeaderBar() {
           <h1 className="text-xl font-bold text-accent tracking-tight">WeSource</h1>
         </div>
 
-        <WalletMenu />
+        <div className="flex items-center gap-2">
+          <NotificationBell />
+          <WalletMenu />
+        </div>
       </div>
       <LiveFeedWedge />
     </header>

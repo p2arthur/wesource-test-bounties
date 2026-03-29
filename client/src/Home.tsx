@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { FiPlus, FiSearch } from 'react-icons/fi'
+import { FiChevronLeft, FiChevronRight, FiPlus, FiSearch } from 'react-icons/fi'
 import { useSearchParams } from 'react-router-dom'
 import AppCalls from './components/AppCalls'
 import BountyCard from './components/BountyCard'
@@ -13,7 +13,7 @@ import { Input } from './components/ui/input'
 import { useProjects } from './contexts/ProjectContext'
 import { useUnifiedWallet } from './hooks/useUnifiedWallet'
 import { Bounty, ProjectCategory } from './interfaces/entities'
-import { listBounties } from './services/api'
+import { listBountiesPaginated, fetchProjectsPaginated, PaginatedResponse } from './services/api'
 
 type Tab = 'projects' | 'bounties'
 type BountyStatus = 'OPEN' | 'READY_FOR_CLAIM' | 'CLAIMED' | 'REFUNDABLE' | 'ALL'
@@ -35,8 +35,11 @@ const Home: React.FC = () => {
   const [bountyStatus, setBountyStatus] = useState<BountyStatus>(
     (searchParams.get('status') as BountyStatus) || 'ALL'
   )
+  const [bountiesPage, setBountiesPage] = useState(parseInt(searchParams.get('bounty_page') || '1'))
+  const [bountiesTotalPages, setBountiesTotalPages] = useState(1)
+  const [projectsPage, setProjectsPage] = useState(parseInt(searchParams.get('project_page') || '1'))
 
-  const { projects, loading, error } = useProjects()
+  const { projects, loading, error, totalPages: projectsTotalPagesContext, refreshProjects } = useProjects()
   const { isConnected } = useUnifiedWallet()
 
   // Debounce search input
@@ -64,15 +67,43 @@ const Home: React.FC = () => {
     setSearchParams(newParams)
   }, [bountyStatus, searchParams, setSearchParams])
 
+  // Load projects when page changes
+  useEffect(() => {
+    refreshProjects(projectsPage)
+  }, [projectsPage, refreshProjects])
+
+  // Sync bounties pagination with URL
+  useEffect(() => {
+    const newParams = new URLSearchParams(searchParams)
+    if (bountiesPage > 1) {
+      newParams.set('bounty_page', bountiesPage.toString())
+    } else {
+      newParams.delete('bounty_page')
+    }
+    setSearchParams(newParams)
+  }, [bountiesPage, searchParams, setSearchParams])
+
+  // Sync projects pagination with URL
+  useEffect(() => {
+    const newParams = new URLSearchParams(searchParams)
+    if (projectsPage > 1) {
+      newParams.set('project_page', projectsPage.toString())
+    } else {
+      newParams.delete('project_page')
+    }
+    setSearchParams(newParams)
+  }, [projectsPage, searchParams, setSearchParams])
+
   useEffect(() => {
     let isActive = true
     const loadBounties = async () => {
       setBountiesLoading(true)
       setBountiesError(null)
       try {
-        const data = await listBounties()
+        const data = await listBountiesPaginated(bountiesPage, 20)
         if (isActive) {
-          setBounties(data)
+          setBounties(data.data)
+          setBountiesTotalPages(data.totalPages)
         }
       } catch (err) {
         if (isActive) {
@@ -88,7 +119,7 @@ const Home: React.FC = () => {
     return () => {
       isActive = false
     }
-  }, [])
+  }, [bountiesPage])
 
   const parseGithubRepoInfo = (repoUrl: string) => {
     try {
@@ -131,8 +162,8 @@ const Home: React.FC = () => {
         // Filter by category
         if (category !== 'ALL') {
           const key = `${bounty.repoOwner.toLowerCase()}/${bounty.repoName.toLowerCase()}`
-          const projectCategory = projectRepoMap.get(key)?.category
-          if (projectCategory !== category) return false
+          const projectInfo = projectRepoMap.get(key)
+          if (projectInfo?.category !== category) return false
         }
 
         // Filter by status
@@ -262,10 +293,38 @@ const Home: React.FC = () => {
                 </div>
               ) : activeTab === 'projects' ? (
                 filteredProjects.length > 0 ? (
-                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                    {filteredProjects.map((project) => (
-                      <ProjectCard key={project.id} project={project} />
-                    ))}
+                  <div className="space-y-5">
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                      {filteredProjects.map((project) => (
+                        <ProjectCard key={project.id} project={project} />
+                      ))}
+                    </div>
+                    {/* Pagination Controls */}
+                    <div className="flex items-center justify-center gap-2 pt-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setProjectsPage(Math.max(1, projectsPage - 1))}
+                        disabled={projectsPage === 1}
+                        className="gap-1"
+                      >
+                        <FiChevronLeft className="w-4 h-4" />
+                        Previous
+                      </Button>
+                      <span className="text-sm text-text-secondary">
+                        Page {projectsPage} of {projectsTotalPagesContext}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setProjectsPage(Math.min(projectsTotalPagesContext, projectsPage + 1))}
+                        disabled={projectsPage >= projectsTotalPagesContext}
+                        className="gap-1"
+                      >
+                        Next
+                        <FiChevronRight className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                 ) : (
                   <div className="rounded-lg border border-border-default bg-bg-surface p-8 text-center space-y-2">
@@ -287,10 +346,38 @@ const Home: React.FC = () => {
                       </p>
                     </div>
                   ) : filteredBounties.length > 0 ? (
-                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                      {filteredBounties.map((bounty) => (
-                        <BountyCard key={bounty.id} bounty={bounty} />
-                      ))}
+                    <div className="space-y-5">
+                      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                        {filteredBounties.map((bounty) => (
+                          <BountyCard key={bounty.id} bounty={bounty} />
+                        ))}
+                      </div>
+                      {/* Pagination Controls */}
+                      <div className="flex items-center justify-center gap-2 pt-4">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setBountiesPage(Math.max(1, bountiesPage - 1))}
+                          disabled={bountiesPage === 1}
+                          className="gap-1"
+                        >
+                          <FiChevronLeft className="w-4 h-4" />
+                          Previous
+                        </Button>
+                        <span className="text-sm text-text-secondary">
+                          Page {bountiesPage} of {bountiesTotalPages}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setBountiesPage(Math.min(bountiesTotalPages, bountiesPage + 1))}
+                          disabled={bountiesPage >= bountiesTotalPages}
+                          className="gap-1"
+                        >
+                          Next
+                          <FiChevronRight className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
                   ) : (
                     <div className="rounded-lg border border-border-default bg-bg-surface p-8 text-center space-y-2">

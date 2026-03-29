@@ -1,12 +1,14 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react'
-import { createProject, CreateProjectPayload, deleteProject, fetchProjectById, fetchProjects, Project } from '../services/api'
+import { createProject, CreateProjectPayload, deleteProject, fetchProjectById, fetchProjects, fetchProjectsPaginated, Project, PaginatedResponse } from '../services/api'
 
 interface ProjectContextType {
   projects: Project[]
   loading: boolean
   error: string | null
+  totalPages: number
+  currentPage: number
   // Actions
-  refreshProjects: () => Promise<void>
+  refreshProjects: (page?: number) => Promise<void>
   getProjectById: (id: number) => Promise<Project | null>
   addProject: (payload: CreateProjectPayload) => Promise<Project>
   removeProject: (id: number) => Promise<void>
@@ -23,13 +25,17 @@ export function ProjectProvider({ children }: ProjectProviderProps) {
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [totalPages, setTotalPages] = useState(1)
+  const [currentPage, setCurrentPage] = useState(1)
 
-  const refreshProjects = useCallback(async () => {
+  const refreshProjects = useCallback(async (page: number = 1) => {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetchProjects()
+      const response = await fetchProjectsPaginated(page, 20)
       setProjects(response.data)
+      setTotalPages(response.totalPages)
+      setCurrentPage(response.page)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch projects')
     } finally {
@@ -70,6 +76,8 @@ export function ProjectProvider({ children }: ProjectProviderProps) {
     projects,
     loading,
     error,
+    totalPages,
+    currentPage,
     refreshProjects,
     getProjectById,
     addProject,

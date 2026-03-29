@@ -34,6 +34,7 @@ export interface Project {
   createdAt: string
   updatedAt?: string
   repositories: Repository[]
+  category?: string
 }
 
 export interface ProjectsResponse {
@@ -384,6 +385,112 @@ export async function refundBounty(bountyId: number, jwtToken?: string): Promise
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Failed to refund bounty' }));
     throw new Error(error.message || `Failed to refund bounty (status ${response.status})`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Paginated bounties response
+ */
+export interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+/**
+ * Fetch paginated bounties
+ */
+export async function listBountiesPaginated(page: number = 1, limit: number = 20): Promise<PaginatedResponse<Bounty>> {
+  const params = new URLSearchParams({
+    page: page.toString(),
+    limit: limit.toString(),
+  });
+  const response = await fetch(`${API_BASE_URL}/api/bounties?${params}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch bounties');
+  }
+  return response.json();
+}
+
+/**
+ * Fetch paginated projects
+ */
+export async function fetchProjectsPaginated(page: number = 1, limit: number = 20): Promise<PaginatedResponse<Project>> {
+  const params = new URLSearchParams({
+    page: page.toString(),
+    limit: limit.toString(),
+  });
+  const response = await fetch(`${API_BASE_URL}/api/projects?${params}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch projects');
+  }
+  return response.json();
+}
+
+/**
+ * Notification interface
+ */
+export interface Notification {
+  id: number;
+  walletAddress: string;
+  type: string;
+  message: string;
+  relatedBountyId?: number;
+  isRead: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Fetch paginated notifications for a wallet
+ */
+export async function getNotifications(
+  walletAddress: string,
+  page: number = 1,
+  limit: number = 10,
+): Promise<PaginatedResponse<Notification>> {
+  const params = new URLSearchParams({
+    wallet: walletAddress,
+    page: page.toString(),
+    limit: limit.toString(),
+  });
+  const response = await fetch(`${API_BASE_URL}/api/notifications?${params}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch notifications');
+  }
+  return response.json();
+}
+
+/**
+ * Get unread notification count for a wallet
+ */
+export async function getUnreadNotificationCount(walletAddress: string): Promise<{ count: number }> {
+  const params = new URLSearchParams({ wallet: walletAddress });
+  const response = await fetch(`${API_BASE_URL}/api/notifications/unread-count?${params}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch unread count');
+  }
+  return response.json();
+}
+
+/**
+ * Mark a notification as read
+ */
+export async function markNotificationAsRead(notificationId: number): Promise<{ message: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/notifications/${notificationId}/read`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({}),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to mark notification as read');
   }
 
   return response.json();

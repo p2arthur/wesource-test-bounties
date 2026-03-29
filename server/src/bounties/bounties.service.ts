@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { GithubService } from '../github/github.service';
 import { AlgorandService, OnChainBounty } from '../algorand/algorand.service';
 import { OracleService } from '../oracle/oracle.service';
+import { TransactionsService } from '../transactions/transactions.service';
 import { CreateBountyDto, ClaimBountyDto } from './dto';
 
 @Injectable()
@@ -19,6 +20,7 @@ export class BountiesService implements OnModuleInit {
     private readonly githubService: GithubService,
     private readonly algorandService: AlgorandService,
     private readonly oracleService: OracleService,
+    private readonly transactionsService: TransactionsService,
   ) {}
 
   onModuleInit() {
@@ -73,6 +75,14 @@ export class BountiesService implements OnModuleInit {
         githubIssueId: BigInt(0),
       },
     });
+
+    // Record transaction for bounty creation
+    await this.transactionsService.create(
+      creatorWallet,
+      'BOUNTY_CREATED',
+      bounty.id,
+      amountMicroAlgos,
+    );
 
     return {
       id: bounty.id,
@@ -214,6 +224,14 @@ export class BountiesService implements OnModuleInit {
       },
     });
 
+    // Record transaction for bounty claim
+    await this.transactionsService.create(
+      authWallet,
+      'BOUNTY_CLAIMED',
+      bountyId,
+      bounty.amount,
+    );
+
     this.logger.log(`Bounty ${bountyId} claimed by wallet ${authWallet}. TxID: ${txId}`);
 
     return {
@@ -275,6 +293,14 @@ export class BountiesService implements OnModuleInit {
       where: { id: bountyId },
       data: { status: 'REFUNDED' },
     });
+
+    // Record transaction for bounty refund
+    await this.transactionsService.create(
+      authWallet,
+      'BOUNTY_REFUNDED',
+      bountyId,
+      bounty.amount,
+    );
 
     this.logger.log(`Bounty ${bountyId} refunded by wallet ${authWallet}. TxID: ${txId}`);
 
@@ -340,6 +366,14 @@ export class BountiesService implements OnModuleInit {
       where: { id: bountyId },
       data: { status: 'CANCELLED' },
     });
+
+    // Record transaction for bounty revocation
+    await this.transactionsService.create(
+      bounty.creatorWallet,
+      'BOUNTY_REVOKED',
+      bountyId,
+      bounty.amount,
+    );
 
     this.logger.log(`Bounty ${bountyId} revoked by manager ${authWallet}. TxID: ${txId}`);
 

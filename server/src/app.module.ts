@@ -10,6 +10,7 @@ import { SeedModule } from './seed/seed.module';
 import { OracleModule } from './oracle/oracle.module';
 import { AuthModule } from './auth/auth.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { TransactionsModule } from './transactions/transactions.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     SeedModule,
     OracleModule,
     NotificationsModule,
+    TransactionsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

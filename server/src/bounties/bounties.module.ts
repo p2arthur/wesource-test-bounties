@@ -4,9 +4,10 @@ import { BountiesService } from './bounties.service';
 import { GithubModule } from '../github/github.module';
 import { AlgorandModule } from '../algorand/algorand.module';
 import { OracleModule } from '../oracle/oracle.module';
+import { TransactionsModule } from '../transactions/transactions.module';
 
 @Module({
-  imports: [GithubModule, AlgorandModule, OracleModule],
+  imports: [GithubModule, AlgorandModule, OracleModule, TransactionsModule],
   controllers: [BountiesController],
   providers: [BountiesService],
 })

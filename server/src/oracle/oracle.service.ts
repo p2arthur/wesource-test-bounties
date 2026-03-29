@@ -2,6 +2,7 @@ import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { GithubService } from '../github/github.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { TransactionsService } from '../transactions/transactions.service';
 import { Prisma } from '@prisma/client';
 
 type BountyWithRepository = Prisma.BountyGetPayload<{
@@ -44,6 +45,7 @@ export class OracleService {
     private readonly prisma: PrismaService,
     private readonly githubService: GithubService,
     private readonly notificationsService: NotificationsService,
+    private readonly transactionsService: TransactionsService,
   ) {}
 
   /**
@@ -260,6 +262,14 @@ export class OracleService {
         'refund_available',
         `Your bounty for ${owner}/${repo}#${issueNumber} is now refundable. The issue was closed as not planned.`,
         bounty.id,
+      );
+
+      // Record transaction for bounty cancellation
+      await this.transactionsService.create(
+        bounty.creatorWallet,
+        'BOUNTY_CANCELLED',
+        bounty.id,
+        bounty.amount,
       );
 
       this.logger.log(`Bounty ${bounty.id} (${owner}/${repo}#${issueNumber}) marked REFUNDABLE: closed as not_planned`);

@@ -1,74 +1,97 @@
-# Frontend Dev — Phase 7.2 + 7.3 (Unblocked)
+# Frontend Dev — Transaction History UI (Final MVP Feature)
 
-**Status:** Backend endpoints are now implemented and ready.
-**What changed:**
-- `GET /api/bounties?page=&limit=` — paginated response: `{ data, total, page, limit, totalPages }`
-- `GET /projects?page=&limit=` — same shape
-- `GET /api/users/:walletAddress` — returns `{ username, wallet, bountiesCreated, bountiesWon, joinedAt }`
-- `GET /api/notifications?wallet=&page=&limit=` — paginated notifications
-- `PATCH /api/notifications/:id/read` — mark as read
-- `GET /api/notifications/unread-count?wallet=` — unread count
+**Status:** Last feature before MVP is declared done.
+**Dependency:** Backend must complete Transaction model + endpoint first.
+**Backend endpoint:** `GET /api/users/:walletAddress/transactions`
 
 ---
 
-## Phase 6 Fix: Verify User Profiles
+## Context
 
-- [ ] Check that `src/services/api.ts` has `getUserProfile(walletAddress)` calling `GET /api/users/:walletAddress`
-- [ ] Verify `ProfilePage.tsx` uses the real endpoint (not hardcoded)
-- [ ] Test: navigate to profile → shows real bounty count, win count, joined date
-- [ ] Commit if fix needed
+The audit flagged Transaction History (#10) as missing. The backend is implementing:
+- `Transaction` model (walletAddress, type, bountyId, amount, createdAt)
+- `GET /api/users/:walletAddress/transactions` endpoint
+
+Response shape:
+```json
+[
+  {
+    "id": 1,
+    "walletAddress": "ABCD...",
+    "type": "BOUNTY_CREATED",
+    "bountyId": 5,
+    "amount": 1000000,
+    "createdAt": "2026-03-29T...",
+    "bounty": {
+      "id": 5,
+      "issueNumber": 42,
+      "issueUrl": "https://github.com/org/repo/issues/42",
+      "repository": { "githubUrl": "https://github.com/org/repo" }
+    }
+  }
+]
+```
+
+Transaction types: `BOUNTY_CREATED`, `BOUNTY_CLAIMED`, `BOUNTY_REFUNDED`, `BOUNTY_REVOKED`, `BOUNTY_CANCELLED`
 
 ---
 
-## Phase 7.2: Pagination
+## Task: Activity Timeline on ProfilePage
 
-### Task 7.2.1: Add Pagination to Home — Bounties List
-- [ ] Update `Home.tsx` — bounties tab uses paginated API: `GET /api/bounties?page=&limit=20`
-- [ ] Parse response: `{ data, total, page, limit, totalPages }`
-- [ ] Add Previous/Next buttons below the bounty list
-- [ ] Sync with URL params: `?page=2` persists on refresh
-- [ ] Disable Previous on page 1, disable Next on last page
+### Step 1: Add API call
+- [ ] Add `getUserTransactions(walletAddress)` to `src/services/api.ts`
+- [ ] Calls `GET /api/users/:walletAddress/transactions`
 - [ ] Commit
 
-### Task 7.2.2: Add Pagination to Home — Projects List
-- [ ] Update `Home.tsx` — projects tab uses paginated API: `GET /projects?page=&limit=20`
-- [ ] Same pagination UI pattern as bounties
-- [ ] URL params: `?page=2` for whichever tab is active
+### Step 2: Activity Timeline Component
+- [ ] Create `src/components/ActivityTimeline.tsx`
+- [ ] Renders a vertical timeline of transactions
+- [ ] Each row:
+  - Icon based on type:
+    - `BOUNTY_CREATED` → `FiPlusCircle` (orange)
+    - `BOUNTY_CLAIMED` → `FiCheckCircle` (green)
+    - `BOUNTY_REFUNDED` → `FiRotateCcw` (red)
+    - `BOUNTY_REVOKED` → `FiXCircle` (red)
+    - `BOUNTY_CANCELLED` → `FiXCircle` (gray)
+  - Action text: "Created bounty for org/repo#42", "Claimed bounty for org/repo#42"
+  - Amount in ALGO (convert microAlgos: `amount / 1_000_000`)
+  - Relative timestamp: "2 hours ago", "yesterday"
+  - Link to bounty page (if bounty exists)
+- [ ] Loading state: skeleton
+- [ ] Empty state: "No activity yet"
+- [ ] Commit
+
+### Step 3: Add to ProfilePage
+- [ ] Import `ActivityTimeline` into `ProfilePage.tsx`
+- [ ] Add section below the stats cards: "Recent Activity"
+- [ ] Fetch transactions on mount (or on wallet connect)
 - [ ] Commit
 
 ---
 
-## Phase 7.3: Notifications
+## Design Notes
 
-### Task 7.3.1: Notification Bell in HeaderBar
-- [ ] Add bell icon to `HeaderBar.tsx` (use `react-icons/fi` — `FiBell`)
-- [ ] Fetch unread count from `GET /api/notifications/unread-count?wallet=`
-- [ ] Show red badge with count when > 0
-- [ ] Refresh count on page navigation (or poll every 30s)
-- [ ] Commit
-
-### Task 7.3.2: Notification Dropdown
-- [ ] On bell click, show dropdown with notifications from `GET /api/notifications?wallet=`
-- [ ] Each notification: type icon, message, timestamp, read/unread styling
-- [ ] Click notification → navigate to relevant bounty page
-- [ ] Click → `PATCH /api/notifications/:id/read` to mark as read
-- [ ] Update badge count after marking read
-- [ ] Commit
+- Use existing shadcn `Card` component for the container
+- Dark theme colors already defined (accent #e8634a, success #3fb950, danger #f85149)
+- Timeline line: subtle vertical line connecting events (CSS border-left on container)
+- Each event: row with icon + text + amount + time
+- Mobile: stack vertically, icons above text
 
 ---
 
 ## Rules
 
-1. Commit after each task
-2. `npm run build` must pass
-3. Test at 375px, 768px, 1024px
-4. Document decisions in `.claude/MEMORY.md`
+1. `npm run build` must pass
+2. Commit after each step (3 commits total)
+3. Don't touch backend code — that's the backend agent's job
+4. Test with real data once backend endpoint is live
+5. Document in `.claude/MEMORY.md`
 
 ---
 
 ## Reference
 
-- **API client:** `src/services/api.ts` — add new endpoints here
-- **HeaderBar:** `src/components/HeaderBar.tsx` — bell icon goes here
-- **Home:** `src/Home.tsx` — pagination goes here
-- **Backend endpoints:** All confirmed working, Swagger at `http://localhost:3000/api`
+- **ProfilePage:** `src/pages/ProfilePage.tsx`
+- **API client:** `src/services/api.ts`
+- **Icons:** `react-icons/fi` (Feather)
+- **shadcn components:** `src/components/ui/card.tsx`, `src/components/ui/skeleton.tsx`

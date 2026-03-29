@@ -1,176 +1,160 @@
-# Backend Agent — Phase 7 Quick Wins
+# Backend Agent — Transaction History (Final MVP Feature)
 
 **Role:** Backend Engineer — NestJS, Prisma, PostgreSQL
-**Scope:** `/server` — 3 endpoints to unblock frontend
-**Urgency:** HIGH — frontend is blocked on these
+**Scope:** `/server` — 1 new model + 1 new endpoint + hook into existing flows
+**Urgency:** Last feature before MVP is declared done.
 
 ---
 
 ## Context
 
-Frontend functional MVP (Phases 3-7.1) is complete and merged to main. Phases 7.2 (Pagination) and 7.3 (Notifications) are blocked by missing backend endpoints. Phase 6 (User Profiles) also needs the user profile endpoint.
-
-Frontend dev has documented exact requirements in `BACKEND_STATUS.md` in the client folder.
+All 13 audit features are complete except #10: Transaction History. The frontend needs a timeline of bounty events per user. This requires a dedicated Transaction model (bounty status only shows current state, not history).
 
 ---
 
-## Task 1: Pagination for GET /api/bounties (Phase 7.2)
+## Task 1: Transaction Model + Service + Endpoint
 
-**File:** `src/bounties/bounties.controller.ts` + `src/bounties/bounties.service.ts`
+### Schema
 
-**What to do:**
-1. Add `@Query('page')` and `@Query('limit')` parameters to the `@Get()` list method in the controller
-2. Update `bountiesService.list()` to accept pagination params
-3. Use Prisma's `skip` and `take`:
-   ```ts
-   const skip = (page - 1) * limit;
-   const bounties = await this.prisma.bounty.findMany({ skip, take: limit, ... });
-   ```
-4. Return paginated response:
-   ```ts
-   {
-     data: BountyResponseDto[],
-     total: number,
-     page: number,
-     limit: number,
-     totalPages: number
-   }
-   ```
-5. Default: `page=1`, `limit=20`
-6. Add `@ApiQuery` decorators for Swagger docs
+Add to `prisma/schema.prisma`:
 
-**Test:** `curl 'http://localhost:3000/api/bounties?page=1&limit=5'` returns 5 items with total count.
-
----
-
-## Task 2: Pagination for GET /projects (Phase 7.2)
-
-**File:** `src/projects/projects.controller.ts` + `src/projects/projects.service.ts`
-
-**Same pattern as Task 1:**
-1. Add `@Query('page')` and `@Query('limit')` to `@Get()` method
-2. Update `projectsService.findAll()` to use Prisma `skip`/`take`
-3. Return paginated response with same shape as bounties
-4. Default: `page=1`, `limit=20`
-
-**Test:** `curl 'http://localhost:3000/projects?page=1&limit=5'` returns 5 projects with total count.
-
----
-
-## Task 3: GET /api/users/:walletAddress (Phase 6)
-
-**File:** `src/auth/auth.service.ts` (add method) + create `src/auth/auth.controller.ts` or add route to existing controller
-
-**What to do:**
-1. Add method to `AuthService`:
-   ```ts
-   async getUserProfile(walletAddress: string) {
-     const user = await this.prisma.user.findFirst({ where: { wallet: walletAddress } });
-     if (!user) return null;
-
-     const bountiesCreated = await this.prisma.bounty.count({ where: { creatorWallet: walletAddress } });
-     const bountiesWon = await this.prisma.bounty.count({ where: { winnerId: user.id } });
-
-     return {
-       id: user.id,
-       username: user.username,
-       wallet: user.wallet,
-       bountiesCreated,
-       bountiesWon,
-       joinedAt: user.createdAt,
-     };
-   }
-   ```
-2. Add controller route:
-   ```ts
-   @Get('api/users/:walletAddress')
-   @ApiOperation({ summary: 'Get user profile by wallet address' })
-   getUserProfile(@Param('walletAddress') walletAddress: string) {
-     return this.authService.getUserProfile(walletAddress);
-   }
-   ```
-3. No auth required (public profile data)
-
-**Test:** `curl http://localhost:3000/api/users/ABCD1234...` returns user profile or 404.
-
----
-
-## Task 4: Notifications Infrastructure (Phase 7.3)
-
-**Priority:** MEDIUM — frontend can work without it, but it's the last feature.
-
-**Schema change:** Add Notification model to `prisma/schema.prisma`:
 ```prisma
-model Notification {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  user      User     @relation(fields: [userId], references: [id])
-  type      String   // "bounty_won", "bounty_claimed", "refund_available"
-  message   String
-  bountyId  Int?
-  bounty    Bounty?  @relation(fields: [bountyId], references: [id])
-  read      Boolean  @default(false)
-  createdAt DateTime @default(now())
+enum TransactionType {
+  BOUNTY_CREATED
+  BOUNTY_CLAIMED
+  BOUNTY_REFUNDED
+  BOUNTY_REVOKED
+  BOUNTY_CANCELLED
+}
+
+model Transaction {
+  id            Int             @id @default(autoincrement())
+  walletAddress String
+  type          TransactionType
+  bountyId      Int
+  bounty        Bounty          @relation(fields: [bountyId], references: [id])
+  amount        Int             // microAlgos
+  createdAt     DateTime        @default(now())
+
+  @@index([walletAddress])
+  @@index([bountyId])
 }
 ```
 
-Also add relation to User model:
-```prisma
-model User {
-  // ... existing fields
-  notifications Notification[]
-}
-```
-
-And optional relation to Bounty:
+Also add relation to Bounty model:
 ```prisma
 model Bounty {
   // ... existing fields
-  notifications Notification[]
+  transactions Transaction[]
 }
 ```
 
-**Migration:** `npx prisma migrate dev --name add_notifications`
+**Migration:** `npx prisma migrate dev --name add_transactions`
 
-**Service + Controller:**
-1. Create `src/notifications/notifications.service.ts` with:
-   - `create(userId, type, message, bountyId?)` — create notification
-   - `findByUser(walletAddress)` — list all for user (newest first)
-   - `markAsRead(id)` — set read=true
-   - `getUnreadCount(walletAddress)` — count where read=false
+### Service
 
-2. Create `src/notifications/notifications.controller.ts` with:
-   - `GET /api/notifications?wallet=ABCD...` — list notifications
-   - `PATCH /api/notifications/:id/read` — mark as read
-   - `GET /api/notifications/unread-count?wallet=ABCD...` — unread count
+Create `src/transactions/transactions.service.ts`:
 
-3. Add `NotificationsModule` to `app.module.ts`
+```ts
+@Injectable()
+export class TransactionsService {
+  constructor(private prisma: PrismaService) {}
 
-4. Wire up oracle to create notifications when:
-   - Bounty winner is set → `bounty_won` notification
-   - Bounty becomes REFUNDABLE → `refund_available` notification
+  async create(walletAddress: string, type: TransactionType, bountyId: number, amount: number) {
+    return this.prisma.transaction.create({
+      data: { walletAddress, type, bountyId, amount },
+    });
+  }
 
-**Test:** Create notification, fetch by wallet, mark as read.
+  async findByWallet(walletAddress: string) {
+    return this.prisma.transaction.findMany({
+      where: { walletAddress },
+      include: {
+        bounty: {
+          select: {
+            id: true,
+            issueNumber: true,
+            issueUrl: true,
+            repository: { select: { githubUrl: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+}
+```
+
+### Controller
+
+Create `src/transactions/transactions.controller.ts`:
+
+```ts
+@ApiTags('Transactions')
+@Controller('api/users/:walletAddress/transactions')
+export class TransactionsController {
+  constructor(private transactionsService: TransactionsService) {}
+
+  @Get()
+  @ApiOperation({ summary: 'Get transaction history for a user' })
+  @ApiParam({ name: 'walletAddress', description: 'User wallet address' })
+  @ApiResponse({ status: 200, description: 'Transaction history' })
+  findAll(@Param('walletAddress') walletAddress: string) {
+    return this.transactionsService.findByWallet(walletAddress);
+  }
+}
+```
+
+**Response shape:**
+```json
+[
+  {
+    "id": 1,
+    "walletAddress": "ABCD...",
+    "type": "BOUNTY_CREATED",
+    "bountyId": 5,
+    "amount": 1000000,
+    "createdAt": "2026-03-29T...",
+    "bounty": {
+      "id": 5,
+      "issueNumber": 42,
+      "issueUrl": "https://github.com/org/repo/issues/42",
+      "repository": { "githubUrl": "https://github.com/org/repo" }
+    }
+  }
+]
+```
+
+### Wire into existing flows
+
+In `bounties.service.ts`, add `TransactionsService.create()` calls at these points:
+
+1. **After bounty creation** — `BOUNTY_CREATED` with creatorWallet + amount
+2. **After claim succeeds** — `BOUNTY_CLAIMED` with winnerWallet + amount
+3. **After refund succeeds** — `BOUNTY_REFUNDED` with creatorWallet + amount
+4. **After revoke succeeds** — `BOUNTY_REVOKED` with creatorWallet + amount
+5. **When oracle marks CANCELLED** — `BOUNTY_CANCELLED` with creatorWallet + amount
+
+### Module
+
+Create `src/transactions/transactions.module.ts`, export `TransactionsService`.
+Register in `app.module.ts`. Inject `TransactionsService` into `BountiesModule`.
 
 ---
 
 ## Rules
 
-1. **Use existing patterns.** Look at bounties.controller.ts and bounties.service.ts for NestJS conventions.
-2. **PrismaService injection** is already set up — use `this.prisma`.
-3. **Swagger decorators** on all new endpoints (`@ApiOperation`, `@ApiResponse`, `@ApiQuery`).
-4. **Tests:** Write at least one spec for each new endpoint.
-5. **Commit after each task** (4 commits total).
-6. **`npm run build` must pass** after each task.
-7. **Update `MEMORY.md`** with decisions.
+1. Follow existing patterns (see bounties.service.ts, notifications service)
+2. Swagger decorators on endpoint
+3. Write at least one test for the endpoint
+4. `npm run build` must pass
+5. Commit with message: `feat: transaction history model + endpoint`
 
 ---
 
 ## Reference
 
 - **Prisma schema:** `prisma/schema.prisma`
-- **Bounties controller:** `src/bounties/bounties.controller.ts` (existing patterns)
-- **Bounties service:** `src/bounties/bounties.service.ts` (Prisma queries)
-- **Auth service:** `src/auth/auth.service.ts` (User model queries)
+- **Bounties service:** `src/bounties/bounties.service.ts` (where to add transaction writes)
 - **App module:** `src/app.module.ts` (module registration)
-- **Existing DTOs:** `src/bounties/dto/` (response DTO patterns)
+- **Notifications module:** `src/notifications/` (similar pattern — follow it)

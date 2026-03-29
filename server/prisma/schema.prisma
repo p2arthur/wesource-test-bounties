@@ -63,6 +63,7 @@ model Bounty {
 
   // Relations
   notifications    Notification[] // Relation to notifications for this bounty
+  transactions     Transaction[]   // Relation to transaction history for this bounty
 
   @@index([issueNumber])
   @@index([status])
@@ -102,4 +103,25 @@ enum BountyStatus {
   CANCELLED // Issue closed as not_planned
   REFUNDABLE // Issue cancelled, funds can be refunded
   REFUNDED // Funds returned to creator
+}
+
+enum TransactionType {
+  BOUNTY_CREATED
+  BOUNTY_CLAIMED
+  BOUNTY_REFUNDED
+  BOUNTY_REVOKED
+  BOUNTY_CANCELLED
+}
+
+model Transaction {
+  id            Int             @id @default(autoincrement())
+  walletAddress String
+  type          TransactionType
+  bountyId      Int
+  bounty        Bounty          @relation(fields: [bountyId], references: [id], onDelete: Cascade)
+  amount        Int             // microAlgos
+  createdAt     DateTime        @default(now())
+
+  @@index([walletAddress])
+  @@index([bountyId])
 }

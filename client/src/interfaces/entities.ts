@@ -39,6 +39,11 @@ export interface Bounty {
   createdAt: string
   updatedAt: string
   projectName?: string
+  winner?: {
+    id: number
+    username?: string
+    wallet?: string
+  }
 }
 
 // API Project type (from WeSource API)

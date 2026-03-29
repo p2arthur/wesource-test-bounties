@@ -8,7 +8,7 @@ import { useWeb3Auth } from '../contexts/Web3AuthContext'
 import algosdk from 'algosdk'
 
 /**
- * Hook that returns a payment-aware `fetch` function.
+ * Hook that returns a payment-aware `fetch` function with auth headers support.
  *
  * When the server responds with 402 Payment Required, the wrapped fetch
  * automatically signs the Algorand USDC payment transaction using the
@@ -16,7 +16,7 @@ import algosdk from 'algosdk'
  *
  * Works with both traditional wallets (Pera, Defly) and Web3Auth social login.
  */
-export function useX402Fetch(): typeof fetch {
+export function useX402Fetch(authHeaders?: HeadersInit): typeof fetch {
   const { isConnected, algorandAccount } = useWeb3Auth()
   const traditional = useWallet()
 
@@ -25,12 +25,7 @@ export function useX402Fetch(): typeof fetch {
     const isWeb3AuthActive = isConnected && !!algorandAccount
     const isTraditionalActive = !!traditional.activeAddress
 
-    if (!isWeb3AuthActive && !isTraditionalActive) {
-      // No wallet connected – return plain fetch (402 will propagate as error)
-      return fetch.bind(globalThis)
-    }
-
-    let signer: ClientAvmSigner
+    let signer: ClientAvmSigner | null = null
 
     if (isWeb3AuthActive && algorandAccount) {
       // Web3Auth signer – we have the secret key
@@ -55,10 +50,10 @@ export function useX402Fetch(): typeof fetch {
           })
         },
       }
-    } else {
+    } else if (isTraditionalActive && traditional.activeAddress) {
       // Traditional wallet signer (Pera, Defly, etc.) via @txnlab/use-wallet
       signer = {
-        address: traditional.activeAddress!,
+        address: traditional.activeAddress,
         signTransactions: async (txns: Uint8Array[], indexesToSign?: number[]) => {
           // @txnlab/use-wallet signTransactions expects the same format
           return traditional.signTransactions(txns, indexesToSign)
@@ -66,11 +61,30 @@ export function useX402Fetch(): typeof fetch {
       }
     }
 
-    // Build x402 client and register AVM scheme
-    const client = new x402Client()
-    registerExactAvmScheme(client, { signer })
+    // Build x402 client and register AVM scheme if we have a signer
+    const client = signer ? new x402Client() : null
+    if (client && signer) {
+      registerExactAvmScheme(client, { signer })
+    }
 
-    // Return a fetch wrapped with automatic 402 payment handling
-    return wrapFetchWithPayment(fetch, client)
-  }, [isConnected, algorandAccount, traditional.activeAddress, traditional.signTransactions])
+    // Return a fetch function that merges auth headers with request
+    return (input: RequestInfo | URL, init?: RequestInit) => {
+      const mergedInit = {
+        ...init,
+        headers: {
+          ...authHeaders,
+          ...init?.headers,
+        },
+        credentials: isWeb3AuthActive ? ('include' as const) : ('omit' as const),
+      }
+
+      // If we have a signer, wrap with x402 payment handling
+      if (client) {
+        return wrapFetchWithPayment(fetch, client)(input, mergedInit)
+      }
+
+      // No signer – return plain fetch with auth headers
+      return fetch(input, mergedInit)
+    }
+  }, [isConnected, algorandAccount, traditional.activeAddress, traditional.signTransactions, authHeaders])
 }

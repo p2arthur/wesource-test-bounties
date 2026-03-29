@@ -3,7 +3,7 @@ export type WalletType = 'web3auth' | 'traditional' | undefined
 export async function getAuthHeaders(
   walletType: WalletType,
   activeAddress: string | undefined,
-  signMessage?: () => Promise<{ signature: string; message: string }>
+  signMessage?: () => Promise<{ signature: string; message: string }>,
 ): Promise<HeadersInit> {
   // If no wallet or address, return empty headers
   if (!walletType || !activeAddress) {
@@ -23,7 +23,7 @@ export async function getAuthHeaders(
 
     const { signature, message } = await signMessage()
     return {
-      'Authorization': `Wallet ${activeAddress}:${signature}:${message}`
+      Authorization: `Wallet ${activeAddress}:${signature}:${message}`,
     }
   }
 

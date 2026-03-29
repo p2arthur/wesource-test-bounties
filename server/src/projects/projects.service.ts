@@ -66,24 +66,36 @@ export class ProjectsService {
   /**
    * Get all projects with their repository URLs (no GitHub data)
    */
-  async findAll() {
-    const projects = await this.prisma.project.findMany({
-      include: {
-        repositories: {
-          select: {
-            id: true,
-            githubUrl: true,
+  async findAll(page: number = 1, limit: number = 20) {
+    const skip = (page - 1) * limit;
+
+    const [projects, total] = await Promise.all([
+      this.prisma.project.findMany({
+        include: {
+          repositories: {
+            select: {
+              id: true,
+              githubUrl: true,
+            },
           },
         },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+        orderBy: {
+          createdAt: 'desc',
+        },
+        skip,
+        take: limit,
+      }),
+      this.prisma.project.count(),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
 
     return {
       data: projects,
-      total: projects.length,
+      total,
+      page,
+      limit,
+      totalPages,
     };
   }
 

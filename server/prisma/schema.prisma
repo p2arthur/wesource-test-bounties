@@ -56,23 +56,43 @@ model Bounty {
   claimerPR     String?   @map("claimer_pull_request")
 
   // Oracle tracking fields
-  processedEventId BigInt?   @map("processed_event_id") // GitHub event ID to prevent double processing
-  lastCheckedAt    DateTime? @map("last_checked_at") // For If-Modified-Since header
-  stateReason      String?   @map("state_reason") // completed, not_planned, etc.
-  closedByCommitId String?   @map("closed_by_commit_id") // Commit SHA that closed the issue
+  processedEventId BigInt?       @map("processed_event_id") // GitHub event ID to prevent double processing
+  lastCheckedAt    DateTime?     @map("last_checked_at") // For If-Modified-Since header
+  stateReason      String?       @map("state_reason") // completed, not_planned, etc.
+  closedByCommitId String?       @map("closed_by_commit_id") // Commit SHA that closed the issue
+
+  // Relations
+  notifications    Notification[] // Relation to notifications for this bounty
 
   @@index([issueNumber])
   @@index([status])
 }
 
 model User {
-  id          Int      @id @default(autoincrement())
-  githubId    Int      @unique
-  username    String?
-  wallet      String?
-  wonBounties Bounty[] // Relation back to bounties won by this user
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            Int            @id @default(autoincrement())
+  githubId      Int            @unique
+  username      String?
+  wallet        String?
+  wonBounties   Bounty[]       // Relation back to bounties won by this user
+  notifications Notification[] // Relation to user notifications
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // e.g., "bounty_won", "refund_available", "bounty_claimed"
+  message   String
+  bountyId  Int?
+  bounty    Bounty?  @relation(fields: [bountyId], references: [id], onDelete: SetNull)
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([bountyId])
+  @@index([read])
 }
 
 enum BountyStatus {

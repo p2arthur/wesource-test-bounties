@@ -3,6 +3,7 @@ import { OracleService } from './oracle.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { GithubService } from '../github/github.service';
 import { BountiesService } from '../bounties/bounties.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 describe('OracleService', () => {
   let oracleService: OracleService;
@@ -33,6 +34,10 @@ describe('OracleService', () => {
     updateStatus: jest.fn(),
   };
 
+  const mockNotificationsService = {
+    createNotification: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -40,6 +45,7 @@ describe('OracleService', () => {
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: GithubService, useValue: mockGithubService },
         { provide: BountiesService, useValue: mockBountiesService },
+        { provide: NotificationsService, useValue: mockNotificationsService },
       ],
     }).compile();
 

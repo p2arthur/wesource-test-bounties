@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiParam, ApiResponse, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { BountiesService } from './bounties.service';
 import { CreateBountyDto, BountyResponseDto, ClaimBountyDto, LinkWalletDto } from './dto';
@@ -43,17 +43,30 @@ export class BountiesController {
 
   @Get()
   @ApiOperation({
-    summary: 'List bounties',
-    description: 'Returns all bounty records.',
+    summary: 'List bounties with pagination',
+    description: 'Returns paginated bounty records.',
   })
   @ApiResponse({
     status: 200,
     description: 'Bounties fetched successfully',
-    type: BountyResponseDto,
-    isArray: true,
+    schema: {
+      type: 'object',
+      properties: {
+        data: { type: 'array', items: { $ref: '#/components/schemas/BountyResponseDto' } },
+        total: { type: 'number' },
+        page: { type: 'number' },
+        limit: { type: 'number' },
+        totalPages: { type: 'number' },
+      },
+    },
   })
-  list() {
-    return this.bountiesService.list();
+  list(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const pageNum = page ? Math.max(1, parseInt(page, 10)) : 1;
+    const limitNum = limit ? Math.max(1, parseInt(limit, 10)) : 20;
+    return this.bountiesService.list(pageNum, limitNum);
   }
 
   @Get('winner/:username')

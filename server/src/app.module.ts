@@ -9,9 +9,20 @@ import { AlgorandModule } from './algorand/algorand.module';
 import { SeedModule } from './seed/seed.module';
 import { OracleModule } from './oracle/oracle.module';
 import { AuthModule } from './auth/auth.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
-  imports: [AuthModule, PrismaModule, GithubModule, ProjectsModule, BountiesModule, AlgorandModule, SeedModule, OracleModule],
+  imports: [
+    AuthModule,
+    PrismaModule,
+    GithubModule,
+    ProjectsModule,
+    BountiesModule,
+    AlgorandModule,
+    SeedModule,
+    OracleModule,
+    NotificationsModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })

@@ -8,6 +8,7 @@ import {
   ParseIntPipe,
   HttpCode,
   HttpStatus,
+  Query,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -51,17 +52,31 @@ export class ProjectsController {
 
   @Get()
   @ApiOperation({
-    summary: 'Get all projects',
+    summary: 'Get all projects with pagination',
     description:
-      'Returns a list of all projects with their associated repositories.',
+      'Returns a paginated list of all projects with their associated repositories.',
   })
   @ApiResponse({
     status: 200,
     description: 'List of projects retrieved successfully',
-    type: ProjectListResponseDto,
+    schema: {
+      type: 'object',
+      properties: {
+        data: { type: 'array', items: { $ref: '#/components/schemas/ProjectResponseDto' } },
+        total: { type: 'number' },
+        page: { type: 'number' },
+        limit: { type: 'number' },
+        totalPages: { type: 'number' },
+      },
+    },
   })
-  findAll() {
-    return this.projectsService.findAll();
+  findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const pageNum = page ? Math.max(1, parseInt(page, 10)) : 1;
+    const limitNum = limit ? Math.max(1, parseInt(limit, 10)) : 20;
+    return this.projectsService.findAll(pageNum, limitNum);
   }
 
   @Get(':id')

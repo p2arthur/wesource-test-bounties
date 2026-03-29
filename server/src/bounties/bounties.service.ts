@@ -90,19 +90,26 @@ export class BountiesService implements OnModuleInit {
     };
   }
 
-  async list() {
-    const bounties = await this.prisma.bounty.findMany({
-      include: {
-        repository: {
-          select: {
-            githubUrl: true,
+  async list(page: number = 1, limit: number = 20) {
+    const skip = (page - 1) * limit;
+
+    const [bounties, total] = await Promise.all([
+      this.prisma.bounty.findMany({
+        include: {
+          repository: {
+            select: {
+              githubUrl: true,
+            },
           },
         },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.bounty.count(),
+    ]);
 
-    return bounties.map((bounty) => {
+    const data = bounties.map((bounty) => {
       const repoInfo = this.githubService.parseGithubUrl(bounty.repository.githubUrl);
 
       return {
@@ -120,6 +127,16 @@ export class BountiesService implements OnModuleInit {
         updatedAt: bounty.updatedAt,
       };
     });
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages,
+    };
   }
 
   async claim(claimBountyDto: ClaimBountyDto, authWallet: string) {

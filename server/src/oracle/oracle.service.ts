@@ -1,6 +1,7 @@
 import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { GithubService } from '../github/github.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { Prisma } from '@prisma/client';
 
 type BountyWithRepository = Prisma.BountyGetPayload<{
@@ -42,6 +43,7 @@ export class OracleService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly githubService: GithubService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   /**
@@ -252,6 +254,14 @@ export class OracleService {
         },
       });
 
+      // Create notification for bounty creator
+      await this.notificationsService.createNotification(
+        bounty.creatorWallet,
+        'refund_available',
+        `Your bounty for ${owner}/${repo}#${issueNumber} is now refundable. The issue was closed as not planned.`,
+        bounty.id,
+      );
+
       this.logger.log(`Bounty ${bounty.id} (${owner}/${repo}#${issueNumber}) marked REFUNDABLE: closed as not_planned`);
 
       return {
@@ -347,6 +357,14 @@ export class OracleService {
     if (!winnerWallet) {
       this.logger.warn(`Bounty ${bounty.id} (${owner}/${repo}#${issueNumber}) is ready but winner ${winnerLogin} has no wallet linked`);
     } else {
+      // Create notification for the winner
+      await this.notificationsService.createNotification(
+        winnerWallet,
+        'bounty_won',
+        `Congratulations! You won the bounty for ${owner}/${repo}#${issueNumber}. You can now claim your reward.`,
+        bounty.id,
+      );
+
       this.logger.log(`Bounty ${bounty.id} (${owner}/${repo}#${issueNumber}) marked READY_FOR_CLAIM: winner=${winnerLogin} (${winnerId})`);
     }
 

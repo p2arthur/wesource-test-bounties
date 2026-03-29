@@ -264,3 +264,19 @@ export async function listWonBounties(githubUsername: string): Promise<WonBounty
   }
   return response.json()
 }
+
+export async function refundBounty(bountyId: number): Promise<{ txId: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/bounties/${bountyId}/refund`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Failed to refund bounty' }))
+    throw new Error(error.message || `Failed to refund bounty (status ${response.status})`)
+  }
+
+  return response.json()
+}

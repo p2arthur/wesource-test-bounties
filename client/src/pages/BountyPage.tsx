@@ -6,11 +6,18 @@ import LoadingPair from '../components/LoadingPair'
 import { useProjects } from '../contexts/ProjectContext'
 import { useUnifiedWallet } from '../hooks/useUnifiedWallet'
 import { Bounty, Project } from '../interfaces/entities'
-import { listBounties } from '../services/api'
+import { listBounties, refundBounty } from '../services/api'
+
+/**
+ * Convert microAlgos to ALGO (1 ALGO = 1,000,000 microAlgos)
+ */
+const microAlgosToAlgo = (microAlgos: number): number => {
+  return microAlgos / 1_000_000
+}
 
 export default function BountyPage() {
   const { bountyId } = useParams<{ bountyId: string }>()
-  const { isConnected } = useUnifiedWallet()
+  const { isConnected, activeAddress } = useUnifiedWallet()
   const { projects, loading: projectsLoading, error: projectsError } = useProjects()
   const [bounties, setBounties] = useState<Bounty[]>([])
   const [loading, setLoading] = useState(true)
@@ -78,6 +85,27 @@ export default function BountyPage() {
     return projectRepoMap.get(key) || null
   }, [bounty, projectRepoMap])
 
+  const [isRefunding, setIsRefunding] = useState(false)
+  const [refundError, setRefundError] = useState<string | null>(null)
+
+  const handleRefund = async () => {
+    if (!bounty) return
+    
+    setIsRefunding(true)
+    setRefundError(null)
+    
+    try {
+      await refundBounty(bounty.id)
+      // Reload bounties to update status
+      const data = await listBounties()
+      setBounties(data)
+    } catch (err) {
+      setRefundError(err instanceof Error ? err.message : 'Failed to refund bounty')
+    } finally {
+      setIsRefunding(false)
+    }
+  }
+
   if (loading || projectsLoading) {
     return (
       <div className="min-h-screen p-4 md:p-8 lg:p-10">
@@ -123,6 +151,7 @@ export default function BountyPage() {
   }
 
   const isOpen = bounty.status === 'OPEN'
+  const isCreator = activeAddress === bounty.creatorWallet
   const bountyTitle = `${bounty.repoOwner}/${bounty.repoName} #${bounty.issueNumber}`
 
   return (
@@ -146,7 +175,7 @@ export default function BountyPage() {
             <div className="text-right flex flex-col items-end">
               <div className="flex items-center gap-2 text-3xl font-bold text-black">
                 <FaCoins className="text-yellow-600" />
-                <AnimatedNumber value={bounty.amount} decimals={2} />
+                <AnimatedNumber value={microAlgosToAlgo(bounty.amount)} decimals={2} />
               </div>
               <div className="text-sm text-muted">ALGO</div>
             </div>
@@ -220,7 +249,20 @@ export default function BountyPage() {
               </a>
             )}
 
-            {isOpen && isConnected ? (
+            {bounty.status === 'REFUNDABLE' && isCreator ? (
+              <div className="border-2 border-yellow-600 bg-yellow-50 p-4 flex-1 min-w-[180px] text-center" style={{ maxWidth: 320 }}>
+                <h3 className="font-bold mb-2">Bounty Refundable</h3>
+                <p className="text-sm mb-3">This issue was closed without a solution. You can reclaim your funds.</p>
+                <button
+                  onClick={handleRefund}
+                  disabled={isRefunding}
+                  className="btn-primary w-full py-2 px-4 border-2 border-black hover:bg-yellow-100 disabled:opacity-50"
+                >
+                  {isRefunding ? 'Refunding...' : `Reclaim ${microAlgosToAlgo(bounty.amount).toFixed(2)} ALGO`}
+                </button>
+                {refundError && <p className="text-red-600 text-xs mt-2">{refundError}</p>}
+              </div>
+            ) : isOpen && isConnected ? (
               <button
                 className="flex-1 min-w-[180px] btn-primary flex items-center justify-center gap-3 py-4 text-lg font-semibold shadow-lg border-2 border-black hover:bg-green-100 transition-all"
                 style={{ maxWidth: 320 }}

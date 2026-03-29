@@ -496,4 +496,43 @@ export async function markNotificationAsRead(notificationId: number): Promise<{ 
   return response.json();
 }
 
+/**
+ * Transaction type for user activity history
+ */
+export type TransactionType = 'BOUNTY_CREATED' | 'BOUNTY_CLAIMED' | 'BOUNTY_REFUNDED' | 'BOUNTY_REVOKED' | 'BOUNTY_CANCELLED';
+
+export interface BountyReference {
+  id: number;
+  issueNumber: number;
+  issueUrl: string;
+  repository: {
+    githubUrl: string;
+  };
+}
+
+export interface Transaction {
+  id: number;
+  walletAddress: string;
+  type: TransactionType;
+  bountyId: number;
+  amount: number;
+  createdAt: string;
+  bounty: BountyReference;
+}
+
+/**
+ * Fetch user transaction history (activity timeline)
+ */
+export async function getUserTransactions(walletAddress: string, page: number = 1, limit: number = 20): Promise<PaginatedResponse<Transaction>> {
+  const params = new URLSearchParams({
+    page: page.toString(),
+    limit: limit.toString(),
+  });
+  const response = await fetch(`${API_BASE_URL}/api/users/${encodeURIComponent(walletAddress)}/transactions?${params}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch transactions');
+  }
+  return response.json();
+}
+
 

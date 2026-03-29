@@ -6,6 +6,21 @@
 
 ---
 
+## Task 0: Visual Audit (Before Any Code)
+
+**Context:** The current frontend is pixel wireframe style — raw, minimal, grid-based. p2 likes the direction but wants it refined into "pixel modern" — same DNA, better execution.
+
+**What to do:**
+- Run the app, click through every page
+- Take screenshots (desktop + mobile)
+- Document in MEMORY.md: color palette, font stack, spacing system, what works, what's rough
+- Identify 2-3 specific components that need the most visual polish
+- **Do NOT redesign everything.** This is an audit, not a rewrite.
+
+**Ongoing rule:** Every time you touch a page for functional reasons (claim button, refund UI, etc.), make one small visual improvement while you're there. Compounding polish > big redesign.
+
+---
+
 ## Context: What Came Before
 
 ### From the Audit

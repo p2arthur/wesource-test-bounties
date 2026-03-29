@@ -82,6 +82,24 @@ client/
 
 Before writing ANY frontend code:
 
+### Step 0: Understand the Visual Language
+
+**Before touching any code, explore the frontend visually.** Run the app, click through every page, take screenshots.
+
+The current aesthetic is **pixel wireframe** — minimal, structured, raw. It has potential but needs refinement. Your job is to evolve it into **pixel modern**: keep the wireframe DNA (sharp edges, grid-based, monochrome palette) but elevate it with:
+
+- **Better typography** — crisp hierarchy, consistent spacing
+- **Refined color accents** — keep it minimal but add intentional pops (status colors, interactive states)
+- **Micro-interactions** — hover states, transitions, loading skeletons that feel deliberate
+- **Responsive polish** — the wireframe look should feel intentional on mobile, not broken
+- **Dark/light coherence** — if there's a theme, make it work across both
+
+**Document your visual audit in `MEMORY.md`:** What works? What's rough? What's the color palette, font stack, spacing system? Note specific components that need polish vs ones that are fine as-is.
+
+This is an ongoing concern — every time you touch a page for functional reasons, ask yourself: "Can I improve the look while I'm here?" Small visual improvements compound.
+
+**Do NOT overhaul the design system in one shot.** Incremental improvements per task. The wireframe aesthetic is the brand — respect it, refine it.
+
 ### Step 1: Read the Plan
 
 - `PLAN.md` — your tasks (Phases 3–7)
@@ -102,6 +120,8 @@ Check `skills/` directory and load relevant skills:
 | Design patterns | `frontend-design` | Visual design systems, responsive patterns |
 | Patterns | `frontend-patterns` | Common React patterns and anti-patterns |
 | Code search | `ast-grep` | Structural search across client codebase |
+| E2E testing | `playwright-skill` | Browser automation, UI testing, responsive checks, login flows |
+| Component testing | `vitest` | Unit tests for components, hooks, services |
 
 ### Step 3: Understand the API Contract
 

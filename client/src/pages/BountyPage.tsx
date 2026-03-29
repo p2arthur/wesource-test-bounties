@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import AnimatedNumber from '../components/AnimatedNumber'
-import { FaCoins, FaCheckCircle, FaGithub, FaChevronRight } from 'react-icons/fa'
+import { FiExternalLink, FiArrowLeft, FiCheckCircle, FiZap } from 'react-icons/fi'
 import { Link, useParams } from 'react-router-dom'
 import LoadingPair from '../components/LoadingPair'
+import { Badge } from '../components/ui/badge'
+import { Button } from '../components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { useProjects } from '../contexts/ProjectContext'
 import { useUnifiedWallet } from '../hooks/useUnifiedWallet'
 import { Bounty, Project } from '../interfaces/entities'
@@ -11,6 +14,15 @@ import { formatAlgoAmount } from '../utils/amount'
 import WalletLinkModal from '../components/WalletLinkModal'
 import { useSnackbar } from 'notistack'
 import { useAuth } from '../hooks/useAuth'
+
+function getBountyStatusVariant(status: string): 'default' | 'success' | 'warning' | 'danger' | 'info' | 'secondary' | 'outline' {
+  switch (status) {
+    case 'OPEN': return 'warning'
+    case 'READY_FOR_CLAIM': return 'info'
+    case 'CLAIMED': return 'success'
+    default: return 'secondary'
+  }
+}
 
 export default function BountyPage() {
   const { bountyId } = useParams<{ bountyId: string }>()
@@ -88,14 +100,11 @@ export default function BountyPage() {
 
   const handleClaim = async () => {
     if (!bounty) return
-
     setIsClaiming(true)
     try {
       const headers = await getAuth()
       const result = await claimBounty(bounty.id, headers)
       enqueueSnackbar(`Bounty claimed! Transaction: ${result.txId}`, { variant: 'success' })
-
-      // Refresh bounty data
       const updatedBounty = await getBountyById(bounty.id)
       setBounties(prev => prev.map(b => b.id === bounty.id ? updatedBounty : b))
     } catch (error) {
@@ -105,14 +114,8 @@ export default function BountyPage() {
     }
   }
 
-  const handleLinkWallet = () => {
-    setShowWalletLinkModal(true)
-  }
-
   const handleWalletLinkSuccess = async () => {
     if (!bounty) return
-
-    // Refresh bounty data after linking
     const updatedBounty = await getBountyById(bounty.id)
     setBounties(prev => prev.map(b => b.id === bounty.id ? updatedBounty : b))
   }
@@ -121,9 +124,9 @@ export default function BountyPage() {
     return (
       <div className="min-h-screen p-4 md:p-8 lg:p-10">
         <div className="max-w-4xl mx-auto">
-          <div className="card p-8 text-center">
+          <Card className="p-8 text-center">
             <LoadingPair size="lg" label="Loading bounty..." />
-          </div>
+          </Card>
         </div>
       </div>
     )
@@ -132,14 +135,12 @@ export default function BountyPage() {
   if (error || projectsError) {
     return (
       <div className="min-h-screen p-4 md:p-8 lg:p-10">
-        <div className="max-w-4xl mx-auto">
-          <div className="card p-8 text-center space-y-4">
-            <h1 className="text-2xl font-bold text-black">Unable to load bounty</h1>
-            <p className="text-muted">{error || projectsError}</p>
-            <Link to="/" className="btn-primary inline-block">
-              Go Home
-            </Link>
-          </div>
+        <div className="max-w-4xl mx-auto space-y-4">
+          <Card className="p-8 text-center space-y-4">
+            <h1 className="text-2xl font-bold text-text-primary">Unable to load bounty</h1>
+            <p className="text-text-secondary">{error || projectsError}</p>
+            <Button asChild><Link to="/">Go Home</Link></Button>
+          </Card>
         </div>
       </div>
     )
@@ -149,13 +150,11 @@ export default function BountyPage() {
     return (
       <div className="min-h-screen p-4 md:p-8 lg:p-10">
         <div className="max-w-4xl mx-auto">
-          <div className="card p-8 text-center space-y-4">
-            <h1 className="text-2xl font-bold text-black">Bounty Not Found</h1>
-            <p className="text-muted">The bounty you're looking for doesn't exist.</p>
-            <Link to="/" className="btn-primary inline-block">
-              Browse Bounties
-            </Link>
-          </div>
+          <Card className="p-8 text-center space-y-4">
+            <h1 className="text-2xl font-bold text-text-primary">Bounty Not Found</h1>
+            <p className="text-text-secondary">The bounty you're looking for doesn't exist.</p>
+            <Button asChild><Link to="/">Browse Bounties</Link></Button>
+          </Card>
         </div>
       </div>
     )
@@ -163,154 +162,150 @@ export default function BountyPage() {
 
   return (
     <div className="min-h-screen p-4 md:p-8 lg:p-10">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <Link to="/" className="text-muted hover:text-black inline-flex items-center gap-2 mb-4">
-            <FaChevronRight className="rotate-180 w-4 h-4" />
-            Back to Bounties
-          </Link>
-          <h1 className="text-3xl md:text-4xl font-bold text-black">{bounty.repoName}</h1>
-          <p className="text-muted text-lg mt-2">
-            Issue #{bounty.issueNumber}: {bounty.issueUrl ? <a href={bounty.issueUrl} target="_blank" rel="noreferrer" className="underline hover:no-underline">{bounty.issueUrl}</a> : 'Link not available'}
+      <div className="max-w-4xl mx-auto space-y-6">
+        {/* Back nav */}
+        <Link to="/" className="inline-flex items-center gap-2 text-text-secondary hover:text-text-primary transition-colors text-sm">
+          <FiArrowLeft className="w-4 h-4" />
+          Back to Bounties
+        </Link>
+
+        {/* Title */}
+        <div>
+          <h1 className="text-3xl md:text-4xl font-bold text-text-primary">{bounty.repoName}</h1>
+          <p className="text-text-secondary text-sm mt-2">
+            Issue #{bounty.issueNumber}
+            {bounty.issueUrl && (
+              <>
+                {' · '}
+                <a href={bounty.issueUrl} target="_blank" rel="noreferrer" className="text-accent hover:text-accent-hover underline underline-offset-2">
+                  View on GitHub
+                </a>
+              </>
+            )}
           </p>
         </div>
 
-        {/* Bounty Card */}
-        <div className="card p-8 space-y-6 mb-8">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div>
-              <div className="flex items-center gap-2 text-muted">
-                <FaCoins className="w-5 h-5" />
-                <span>Bounty Reward</span>
+        {/* Reward Card */}
+        <Card>
+          <CardContent className="p-8 space-y-6">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div>
+                <p className="text-xs text-text-muted uppercase tracking-wider mb-1">Bounty Reward</p>
+                <h2 className="text-5xl font-bold text-accent font-mono">
+                  <AnimatedNumber value={bounty.amount} formatValue={formatAlgoAmount} />
+                </h2>
               </div>
-              <h2 className="text-4xl font-bold text-black mt-2">
-                {formatAlgoAmount(bounty.amount)}
-              </h2>
+              <Badge variant={getBountyStatusVariant(bounty.status)} className="text-sm px-3 py-1">
+                {bounty.status}
+              </Badge>
             </div>
-            <div className="flex items-center gap-2 px-4 py-2 border-2 border-black rounded-full">
-              <div className={`w-3 h-3 rounded-full ${bounty.status === 'OPEN' ? 'bg-yellow-500' : bounty.status === 'READY_FOR_CLAIM' ? 'bg-blue-500' : 'bg-green-500'}`}></div>
-              <span className="font-medium text-black">{bounty.status}</span>
+
+            <div className="border-t border-border-default pt-6">
+              <h3 className="text-sm font-semibold text-text-primary mb-3">How to win this bounty</h3>
+              <ul className="space-y-2">
+                {[
+                  'Complete the issue on GitHub',
+                  'Create a pull request referencing this issue',
+                  'Wait for the bounty to be marked as READY_FOR_CLAIM',
+                ].map((step) => (
+                  <li key={step} className="flex items-center gap-2 text-sm text-text-secondary">
+                    <FiCheckCircle className="text-success flex-shrink-0" />
+                    {step}
+                  </li>
+                ))}
+              </ul>
             </div>
-          </div>
+          </CardContent>
+        </Card>
 
-          <div className="border-t border-gray-200 pt-6">
-            <h3 className="text-lg font-semibold text-black mb-4">How to win this bounty</h3>
-            <ul className="space-y-2 text-muted">
-              <li className="flex items-center gap-2">
-                <FaCheckCircle className="text-green-500" />
-                Complete the issue on GitHub
-              </li>
-              <li className="flex items-center gap-2">
-                <FaCheckCircle className="text-green-500" />
-                Create a pull request referencing this issue
-              </li>
-              <li className="flex items-center gap-2">
-                <FaCheckCircle className="text-green-500" />
-                Wait for the bounty to be marked as READY_FOR_CLAIM
-              </li>
-            </ul>
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="card p-8 space-y-4">
-          <h2 className="text-lg font-bold text-black mb-2">Actions</h2>
-          <div className="flex flex-col md:flex-row gap-4 md:gap-8 justify-center items-center">
+        {/* Actions Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Actions</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col md:flex-row gap-4 justify-center items-center">
             {bounty.issueUrl && (
-              <a
-                href={bounty.issueUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="flex-1 min-w-[180px] btn-secondary flex items-center justify-center gap-3 py-4 text-lg font-semibold shadow-lg border-2 border-black hover:bg-gray-100 transition-all"
-                style={{ maxWidth: 320 }}
-              >
-                <FaGithub className="w-6 h-6" />
-                <span>View on GitHub</span>
-              </a>
+              <Button variant="secondary" asChild className="flex-1 max-w-xs py-5 text-base">
+                <a href={bounty.issueUrl} target="_blank" rel="noreferrer">
+                  <FiExternalLink className="w-5 h-5" />
+                  View on GitHub
+                </a>
+              </Button>
             )}
 
-            {/* Claim Button Logic */}
             {(() => {
               const isWinner = activeAddress === bounty.winner?.wallet
               const hasWinnerWallet = !!bounty.winner?.wallet
 
               if (bounty.status === 'READY_FOR_CLAIM' && isConnected && isWinner && hasWinnerWallet) {
                 return (
-                  <button
+                  <Button
                     onClick={handleClaim}
                     disabled={isClaiming}
-                    className="flex-1 min-w-[180px] btn-primary flex items-center justify-center gap-3 py-4 text-lg font-semibold shadow-lg border-2 border-black hover:bg-green-100 transition-all"
-                    style={{ maxWidth: 320 }}
+                    className="flex-1 max-w-xs py-5 text-base"
                   >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                    <span>Claim Bounty — {formatAlgoAmount(bounty.amount)}</span>
-                    {isClaiming && <span className="animate-spin ml-2">⏳</span>}
-                  </button>
+                    <FiZap className="w-5 h-5" />
+                    Claim Bounty — {formatAlgoAmount(bounty.amount)}
+                  </Button>
                 )
               } else if (bounty.status === 'READY_FOR_CLAIM' && bounty.winner && !hasWinnerWallet) {
                 return (
-                  <button
-                    onClick={handleLinkWallet}
-                    className="flex-1 min-w-[180px] btn-primary flex items-center justify-center gap-3 py-4 text-lg font-semibold shadow-lg border-2 border-black hover:bg-blue-100 transition-all"
-                    style={{ maxWidth: 320 }}
+                  <Button
+                    onClick={() => setShowWalletLinkModal(true)}
+                    className="flex-1 max-w-xs py-5 text-base"
                   >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                    </svg>
-                    <span>Link Wallet to Claim {formatAlgoAmount(bounty.amount)}</span>
-                  </button>
+                    Link Wallet to Claim {formatAlgoAmount(bounty.amount)}
+                  </Button>
                 )
               } else if (bounty.status === 'READY_FOR_CLAIM' && bounty.winner?.wallet && !isWinner) {
                 return (
-                  <div className="flex-1 min-w-[180px] text-sm text-gray-600 border-2 border-black p-3 text-center" style={{ maxWidth: 320 }}>
-                    This bounty has been awarded to <strong>{bounty.winner.username || 'another user'}</strong>
+                  <div className="flex-1 max-w-xs text-sm text-text-secondary rounded-md border border-border-default p-3 text-center">
+                    Awarded to <strong className="text-text-primary">{bounty.winner.username || 'another user'}</strong>
                   </div>
                 )
               } else if (bounty.status === 'OPEN') {
                 return (
-                  <div className="flex-1 min-w-[180px] text-sm text-gray-600 border-2 border-black p-3 text-center" style={{ maxWidth: 320 }}>
+                  <div className="flex-1 max-w-xs text-sm text-text-secondary rounded-md border border-border-default p-3 text-center">
                     Solve this issue on GitHub to win this bounty
                   </div>
                 )
               } else if (bounty.status === 'CLAIMED') {
                 return (
-                  <div className="flex-1 min-w-[180px] text-sm text-green-600 border-2 border-green-600 p-3 text-center" style={{ maxWidth: 320 }}>
+                  <div className="flex-1 max-w-xs text-sm text-success rounded-md border border-success/30 bg-success/10 p-3 text-center">
                     ✓ This bounty has been claimed
                   </div>
                 )
               }
               return null
             })()}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* Project Info */}
         {project && (
-          <div className="card p-6 space-y-4">
-            <h2 className="text-lg font-bold text-black">About {project.name}</h2>
-            {project.description && <p className="text-black">{project.description}</p>}
-            {project.techStack && project.techStack.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {project.techStack.map((tech) => (
-                  <span key={tech} className="px-2 py-1 border-2 border-black text-xs font-medium text-black">
-                    {tech}
-                  </span>
-                ))}
-              </div>
-            )}
-            <Link to={`/project/${project.id}`} className="btn-secondary inline-flex items-center gap-2">
-              View Project
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </Link>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>About {project.name}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {project.description && <p className="text-text-secondary text-sm">{project.description}</p>}
+              {project.techStack && project.techStack.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {project.techStack.map((tech) => (
+                    <Badge key={tech} variant="secondary">{tech}</Badge>
+                  ))}
+                </div>
+              )}
+              <Button variant="outline" asChild>
+                <Link to={`/project/${project.id}`}>
+                  View Project
+                  <FiExternalLink className="w-4 h-4 ml-1" />
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
         )}
 
-        {/* Wallet Link Modal */}
         {showWalletLinkModal && (
           <WalletLinkModal
             isOpen={showWalletLinkModal}

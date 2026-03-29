@@ -3,13 +3,11 @@ import WalletMenu from './WalletMenu'
 
 export default function HeaderBar() {
   return (
-    <header className="flex flex-col items-center justify-between sticky top-0 z-50 bg-white">
-      <div className="w-full flex justify-between px-4 border-b-4 border-black">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <img src="/wecoop_loading.gif" alt="Loading" className="h-16 w-16" />
-            <h1 className="text-2xl font-bold text-black">WeSource</h1>
-          </div>
+    <header className="sticky top-0 z-50 flex flex-col items-center justify-between bg-bg-surface border-b border-border-default">
+      <div className="w-full flex justify-between items-center px-4 py-2">
+        <div className="flex items-center gap-3">
+          <img src="/wecoop_loading.gif" alt="WeSource" className="h-10 w-10" />
+          <h1 className="text-xl font-bold text-accent tracking-tight">WeSource</h1>
         </div>
 
         <WalletMenu />

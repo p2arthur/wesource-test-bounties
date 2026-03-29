@@ -1,0 +1,24 @@
+# GLOBAL MEMORY — WeSource Shared Context
+
+**Purpose:** Cross-agent coordination. Each agent reads this on start and posts a brief summary after major tasks.
+**Rule:** Keep entries SHORT. 2–5 lines max. Detailed logs go in each agent's local MEMORY.md.
+
+---
+
+## Project
+
+WeSource — decentralized bounty platform on Algorand.
+3 layers: `/contracts` (On-Chain) → `/server` (Backend) → `/client` (Frontend)
+15-day fix plan across 7 phases. Current: Phase 1 not started.
+
+---
+
+## Log
+
+<!-- Newest at TOP. Agent posts brief summary here after major tasks. -->
+
+### [2026-03-28] Setup Complete
+- Agent workspaces created in each project folder (contracts/, server/, client/)
+- Each has: AGENTS.md, PLAN.md, MEMORY.md, skills/
+- Execution order: Contract → Types → Auth → Claim/Refund → Profiles → Polish
+- Ready for Phase 1

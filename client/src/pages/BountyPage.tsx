@@ -26,7 +26,7 @@ function getBountyStatusVariant(status: string): 'default' | 'success' | 'warnin
 
 export default function BountyPage() {
   const { bountyId } = useParams<{ bountyId: string }>()
-  const { isConnected, activeAddress } = useUnifiedWallet()
+  const { isConnected, activeAddress, userInfo } = useUnifiedWallet()
   const { projects, loading: projectsLoading, error: projectsError } = useProjects()
   const [bounties, setBounties] = useState<Bounty[]>([])
   const [loading, setLoading] = useState(true)
@@ -35,7 +35,7 @@ export default function BountyPage() {
   const [isRefunding, setIsRefunding] = useState(false)
   const [showWalletLinkModal, setShowWalletLinkModal] = useState(false)
   const { enqueueSnackbar } = useSnackbar()
-  const { jwtToken, handleAuthError, login, isAuthenticated } = useAuth()
+  const { jwtToken, handleAuthError, login, isAuthenticated, getAuth } = useAuth()
 
   useEffect(() => {
     let isActive = true
@@ -99,22 +99,43 @@ export default function BountyPage() {
     return projectRepoMap.get(key) || null
   }, [bounty, projectRepoMap])
 
+  // When user is connected via Web3Auth GitHub and is the bounty winner but their wallet
+  // isn't linked yet, auto-register the link and refresh the bounty.
+  useEffect(() => {
+    const winner = bounty?.winner
+    if (!bounty || bounty.status !== 'READY_FOR_CLAIM') return
+    if (!winner?.username || winner.wallet) return
+    if (!activeAddress || !userInfo?.name || userInfo.name !== winner.username) return
+
+    const rawVerifierId = userInfo.verifierId ?? ''
+    const numericPart = rawVerifierId.includes('|') ? rawVerifierId.split('|').pop() ?? '' : rawVerifierId
+    const githubId = parseInt(numericPart, 10) || 0
+    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+
+    fetch(`${apiBase}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ walletAddress: activeAddress, githubUsername: userInfo.name, githubId }),
+    })
+      .then(() => getBountyById(bounty.id))
+      .then((updated) => setBounties((prev) => prev.map((b) => (b.id === bounty.id ? updated : b))))
+      .catch(console.error)
+  }, [bounty?.id, bounty?.winner?.wallet, activeAddress, userInfo?.name])
+
   const handleClaim = async () => {
     if (!bounty) return
 
-    // Ensure user is authenticated
-    if (!isAuthenticated) {
-      await login()
-    }
+    const authHeaders = await getAuth() as Record<string, string>
+    const token = authHeaders['Authorization']?.replace('Bearer ', '')
 
-    if (!jwtToken) {
+    if (!token) {
       enqueueSnackbar('Authentication required. Please login first.', { variant: 'error' })
       return
     }
 
     setIsClaiming(true)
     try {
-      const result = await claimBounty(bounty.id, jwtToken)
+      const result = await claimBounty(bounty.id, token)
       enqueueSnackbar(`Bounty claimed! Transaction: ${result.txId}`, { variant: 'success' })
       const updatedBounty = await getBountyById(bounty.id)
       setBounties(prev => prev.map(b => b.id === bounty.id ? updatedBounty : b))
@@ -128,19 +149,17 @@ export default function BountyPage() {
   const handleRefund = async () => {
     if (!bounty) return
 
-    // Ensure user is authenticated
-    if (!isAuthenticated) {
-      await login()
-    }
+    const authHeaders = await getAuth() as Record<string, string>
+    const token = authHeaders['Authorization']?.replace('Bearer ', '')
 
-    if (!jwtToken) {
+    if (!token) {
       enqueueSnackbar('Authentication required. Please login first.', { variant: 'error' })
       return
     }
 
     setIsRefunding(true)
     try {
-      const result = await refundBounty(bounty.id, jwtToken)
+      const result = await refundBounty(bounty.id, token)
       enqueueSnackbar(`Bounty refunded! Transaction: ${result.txId}`, { variant: 'success' })
       const updatedBounty = await getBountyById(bounty.id)
       setBounties(prev => prev.map(b => b.id === bounty.id ? updatedBounty : b))
@@ -271,11 +290,16 @@ export default function BountyPage() {
             )}
 
             {(() => {
-              const isWinner = activeAddress === bounty.winner?.wallet
+              const isWinnerByWallet = activeAddress === bounty.winner?.wallet
+              const isWinnerByGitHub =
+                !!bounty.winner?.username &&
+                !!userInfo?.name &&
+                userInfo.name === bounty.winner.username &&
+                !!activeAddress
+              const isWinner = isWinnerByWallet || isWinnerByGitHub
               const isCreator = activeAddress === bounty.creatorWallet
-              const hasWinnerWallet = !!bounty.winner?.wallet
 
-              if (bounty.status === 'READY_FOR_CLAIM' && isConnected && isWinner && hasWinnerWallet) {
+              if (bounty.status === 'READY_FOR_CLAIM' && isConnected && isWinner) {
                 return (
                   <Button
                     onClick={handleClaim}
@@ -286,7 +310,7 @@ export default function BountyPage() {
                     Claim Bounty — {formatAlgoAmount(bounty.amount)}
                   </Button>
                 )
-              } else if (bounty.status === 'READY_FOR_CLAIM' && bounty.winner && !hasWinnerWallet) {
+              } else if (bounty.status === 'READY_FOR_CLAIM' && bounty.winner && !bounty.winner.wallet && !isWinner) {
                 return (
                   <Button
                     onClick={() => setShowWalletLinkModal(true)}

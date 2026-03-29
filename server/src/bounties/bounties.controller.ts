@@ -89,8 +89,19 @@ export class BountiesController {
     return this.bountiesService.listByWinner(username);
   }
 
+  @Get(':id')
+  @ApiOperation({ summary: 'Get a single bounty by ID with winner details' })
+  @ApiParam({ name: 'id', description: 'Bounty ID', type: Number })
+  @ApiResponse({ status: 200, description: 'Bounty fetched successfully', type: BountyResponseDto })
+  @ApiResponse({ status: 404, description: 'Bounty not found' })
+  getById(@Param('id') id: string) {
+    return this.bountiesService.getById(Number(id));
+  }
+
   @Post('claim')
+  @UseGuards(AuthGuard)
   @HttpCode(HttpStatus.OK)
+  @ApiSecurity('bearer')
   @ApiOperation({
     summary: 'Claim a bounty',
     description: 'Allows the winner of a bounty to claim their reward. Verifies GitHub identity and transfers funds on-chain.',

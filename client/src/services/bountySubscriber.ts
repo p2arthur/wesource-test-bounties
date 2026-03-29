@@ -1,6 +1,17 @@
 import { AlgorandSubscriber } from '@algorandfoundation/algokit-subscriber'
 import type { SubscribedTransaction, TransactionFilter } from '@algorandfoundation/algokit-subscriber/types/subscription'
-import { AlgorandClient } from '@algorandfoundation/algokit-utils'
+import { AlgorandClient, Config } from '@algorandfoundation/algokit-utils'
+
+// Suppress debug/info noise from the algokit-subscriber internals — only warn/error pass through
+Config.configure({
+  logger: {
+    error: console.error.bind(console),
+    warn: console.warn.bind(console),
+    info: () => {},
+    debug: () => {},
+    verbose: () => {},
+  },
+})
 import { getAlgodConfigFromViteEnvironment, getIndexerConfigFromViteEnvironment } from '../utils/network/getAlgoClientConfigs'
 
 // The deployed SourceFactory App ID

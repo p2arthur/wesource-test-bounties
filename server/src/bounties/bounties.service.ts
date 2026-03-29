@@ -111,6 +111,9 @@ export class BountiesService implements OnModuleInit {
               githubUrl: true,
             },
           },
+          winner: {
+            select: { id: true, username: true, wallet: true },
+          },
         },
         orderBy: { createdAt: 'desc' },
         skip,
@@ -133,6 +136,7 @@ export class BountiesService implements OnModuleInit {
         creatorWallet: bounty.creatorWallet,
         status: bounty.status,
         winnerId: bounty.winnerId,
+        winner: bounty.winner ?? null,
         createdAt: bounty.createdAt,
         updatedAt: bounty.updatedAt,
       };
@@ -146,6 +150,38 @@ export class BountiesService implements OnModuleInit {
       page,
       limit,
       totalPages,
+    };
+  }
+
+  async getById(id: number) {
+    const bounty = await this.prisma.bounty.findUnique({
+      where: { id },
+      include: {
+        repository: { select: { githubUrl: true } },
+        winner: { select: { id: true, username: true, wallet: true } },
+      },
+    });
+
+    if (!bounty) {
+      throw new HttpException('Bounty not found', HttpStatus.NOT_FOUND);
+    }
+
+    const repoInfo = this.githubService.parseGithubUrl(bounty.repository.githubUrl);
+    return {
+      id: bounty.id,
+      bountyKey: bounty.bountyKey,
+      repoOwner: repoInfo?.owner ?? '',
+      repoName: repoInfo?.repo ?? '',
+      issueNumber: bounty.issueNumber,
+      issueUrl: bounty.issueUrl,
+      amount: bounty.amount,
+      creatorWallet: bounty.creatorWallet,
+      status: bounty.status,
+      winnerId: bounty.winnerId,
+      winner: bounty.winner ?? null,
+      claimedAt: bounty.claimedAt,
+      createdAt: bounty.createdAt,
+      updatedAt: bounty.updatedAt,
     };
   }
 

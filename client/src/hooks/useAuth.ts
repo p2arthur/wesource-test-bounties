@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
 import { useUnifiedWallet } from './useUnifiedWallet';
 import { getAuthHeaders } from '../utils/auth';
+import { getWeb3AuthInstance } from '../utils/web3auth/web3authConfig';
 
 export function useAuth() {
   const { enqueueSnackbar } = useSnackbar();
@@ -18,49 +19,54 @@ export function useAuth() {
     }
   }, []);
 
-  const getAuth = useCallback(async (): Promise<HeadersInit> => {
-    // If JWT is available, use it
-    if (jwtToken) {
-      return {
-        Authorization: `Bearer ${jwtToken}`,
-      };
-    }
+  // Auto-fetch Web3Auth ID token when connected via Web3Auth
+  useEffect(() => {
+    if (walletType !== 'web3auth' || !activeAddress || jwtToken) return;
+    getWeb3AuthInstance()?.authenticateUser()
+      .then(({ idToken }) => {
+        localStorage.setItem('auth_token', idToken);
+        setJwtToken(idToken);
+      })
+      .catch(console.error);
+  }, [walletType, activeAddress, jwtToken]);
 
-    // Fall back to wallet-based auth
+  const getAuth = useCallback(async (): Promise<HeadersInit> => {
+    if (jwtToken) {
+      return { Authorization: `Bearer ${jwtToken}` };
+    }
     if (!walletType || !activeAddress) {
       return {};
     }
-
     try {
       return await getAuthHeaders(walletType as any, activeAddress, signLoginMessage);
     } catch (error) {
       console.error('Failed to get auth headers:', error);
-      enqueueSnackbar('Failed to authenticate. Please reconnect wallet.', {
-        variant: 'error'
-      });
+      enqueueSnackbar('Failed to authenticate. Please reconnect wallet.', { variant: 'error' });
       return {};
     }
   }, [walletType, activeAddress, signLoginMessage, jwtToken, enqueueSnackbar]);
 
   const login = useCallback(async () => {
-    if (!activeAddress || !signLoginMessage) {
+    if (!activeAddress) {
       enqueueSnackbar('Wallet not connected', { variant: 'error' });
       return;
     }
 
     try {
-      const { signature, message } = await signLoginMessage();
+      if (walletType === 'web3auth') {
+        const instance = getWeb3AuthInstance();
+        if (!instance) throw new Error('Web3Auth not initialized');
+        const { idToken } = await instance.authenticateUser();
+        localStorage.setItem('auth_token', idToken);
+        setJwtToken(idToken);
+        return;
+      }
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/auth/login`, {
+      const { signature, message } = await signLoginMessage();
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/auth/wallet-login`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          walletAddress: activeAddress,
-          message,
-          signature,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ walletAddress: activeAddress, message, signature }),
       });
 
       if (!response.ok) {
@@ -70,10 +76,7 @@ export function useAuth() {
 
       const data = await response.json();
       const token = data.token || data.jwt;
-
-      if (!token) {
-        throw new Error('No token received from backend');
-      }
+      if (!token) throw new Error('No token received from backend');
 
       localStorage.setItem('auth_token', token);
       setJwtToken(token);
@@ -83,7 +86,7 @@ export function useAuth() {
       console.error('AUTH LOGIN:', error);
       enqueueSnackbar(errorMsg, { variant: 'error' });
     }
-  }, [activeAddress, signLoginMessage, enqueueSnackbar]);
+  }, [walletType, activeAddress, signLoginMessage, enqueueSnackbar]);
 
   const logout = useCallback(() => {
     localStorage.removeItem('auth_token');
@@ -108,7 +111,7 @@ export function useAuth() {
     handleAuthError,
     login,
     logout,
-    isAuthenticated: !!activeAddress && !!jwtToken,
+    isAuthenticated: !!activeAddress && (walletType === 'web3auth' ? true : !!jwtToken),
     walletType,
     activeAddress,
     jwtToken,

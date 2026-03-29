@@ -22,6 +22,12 @@ interface Web3AuthContextType {
   refreshUserInfo: () => Promise<void>
 }
 
+function hashString(s: string): number {
+  let h = 5381
+  for (let i = 0; i < s.length; i++) h = (Math.imul(h, 33) ^ s.charCodeAt(i)) >>> 0
+  return h
+}
+
 const Web3AuthContext = createContext<Web3AuthContextType | undefined>(undefined)
 
 export function Web3AuthProvider({ children }: { children: ReactNode }) {
@@ -110,6 +116,25 @@ export function Web3AuthProvider({ children }: { children: ReactNode }) {
 
       const userInformation = await getWeb3AuthUserInfo()
       if (userInformation) setUserInfo(userInformation)
+
+      if (userInformation?.name && account) {
+        const rawVerifierId = userInformation.verifierId ?? ''
+        const numericPart = rawVerifierId.includes('|') ? rawVerifierId.split('|').pop() ?? '' : rawVerifierId
+        const githubId = parseInt(numericPart, 10) || hashString(userInformation.name)
+        try {
+          await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              walletAddress: account.addr,
+              githubUsername: userInformation.name,
+              githubId,
+            }),
+          })
+        } catch (err) {
+          console.error('Failed to register wallet↔GitHub link:', err)
+        }
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Login failed'
       console.error('LOGIN: Error:', err)

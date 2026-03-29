@@ -284,19 +284,6 @@ export class OracleService {
       };
     }
 
-    // Only process "completed" closures for payout
-    if (stateReason !== 'completed') {
-      this.logger.debug(
-        `Bounty ${bounty.id} (${owner}/${repo}#${issueNumber}): closed but state_reason=${stateReason || 'null'}, not processing`,
-      );
-
-      return {
-        bountyId: bounty.id,
-        issueNumber,
-        status: 'skipped',
-        action: 'no_change',
-      };
-    }
 
     // Identity Attribution: Find the winner
     let winnerId: number | null = null;
@@ -387,7 +374,7 @@ export class OracleService {
         githubId: winnerId,
         login: winnerLogin,
       },
-      stateReason,
+      stateReason: stateReason ?? undefined,
       eventId: closedEvent.id,
     };
   }

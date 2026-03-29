@@ -1,7 +1,11 @@
 import { FormEvent, useEffect, useRef, useState } from 'react'
+import { FiZap } from 'react-icons/fi'
 import { useUnifiedWallet } from '../hooks/useUnifiedWallet'
 import { Issue } from '../interfaces/entities'
 import { X402PaymentRequirements } from '../services/api'
+import { Button } from './ui/button'
+import { Input } from './ui/input'
+import { Badge } from './ui/badge'
 import LoadingPair from './LoadingPair'
 import Modal from './Modal'
 import Tooltip from './Tooltip'
@@ -14,7 +18,6 @@ interface CreateBountyModalProps {
   repoName: string
   projectName: string
   onClose: () => void
-  /** Phase 1: on-chain creation + preflight to get x402 requirements */
   onInitBounty: (
     issueNumber: number,
     amount: number,
@@ -22,7 +25,6 @@ interface CreateBountyModalProps {
     repoOwner: string,
     repoName: string,
   ) => Promise<X402PaymentRequirements | null>
-  /** Phase 2: sign the x402 payment and complete server registration */
   onConfirmPayment: (issueNumber: number, amount: number, creatorWallet: string, repoOwner: string, repoName: string) => Promise<void>
 }
 
@@ -46,7 +48,6 @@ export default function CreateBountyModal({
 
   if (!issue) return null
 
-  /** Phase 1 — on-chain + preflight */
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -70,12 +71,10 @@ export default function CreateBountyModal({
       const requirements = await onInitBounty(issue.number, algoAmount, creatorWallet.trim(), repoOwner, repoName)
 
       if (requirements) {
-        // x402 payment required — show preview
         setX402Requirements(requirements)
         setSubmitStep('x402-preview')
         setIsSubmitting(false)
       } else {
-        // No x402 middleware — bounty already created
         setSubmitStep('complete')
         onClose()
       }
@@ -86,7 +85,6 @@ export default function CreateBountyModal({
     }
   }
 
-  /** Phase 2 — user confirmed x402 payment */
   const handleConfirmX402 = async () => {
     setError(null)
     setIsSubmitting(true)
@@ -116,204 +114,163 @@ export default function CreateBountyModal({
       onClose={onClose}
       title="Create Bounty"
       panelClassName="max-w-lg"
-      iconWrapperClassName="bg-yellow-100"
-      icon={
-        <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-          />
-        </svg>
-      }
+      icon={<FiZap className="w-4 h-4 text-accent" />}
     >
       {/* Issue Info */}
-      <div className="p-4 border-2 border-black bg-gray-50 space-y-2">
-        <div className="flex items-center gap-2 text-sm text-muted">
-          <span className="font-medium">{projectName}</span>
+      <div className="rounded-md border border-border-default bg-bg-base p-4 space-y-2">
+        <div className="flex items-center gap-2 text-xs text-text-muted">
+          <span className="font-medium text-text-secondary">{projectName}</span>
           <span>/</span>
           <span>{repoName}</span>
           <span className="ml-auto">#{issue.number}</span>
         </div>
-        <h4 className="font-bold text-black">{issue.title}</h4>
+        <h4 className="font-semibold text-text-primary text-sm">{issue.title}</h4>
         <div className="flex items-center gap-2">
-          <span
-            className={`px-2 py-0.5 text-xs font-medium border ${
-              issue.state === 'open' ? 'border-green-600 text-green-600 bg-green-50' : 'border-purple-600 text-purple-600 bg-purple-50'
-            }`}
-          >
+          <Badge variant={issue.state === 'open' ? 'success' : 'secondary'}>
             {issue.state}
-          </span>
-          <a href={issue.htmlUrl} target="_blank" rel="noreferrer" className="text-xs text-black underline hover:no-underline">
+          </Badge>
+          <a href={issue.htmlUrl} target="_blank" rel="noreferrer" className="text-xs text-accent hover:text-accent-hover transition-colors">
             View on GitHub →
           </a>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        <label className="flex flex-col gap-2">
-          <span className="text-sm font-medium text-black">
-            Bounty Amount (ALGO)
-            <Tooltip text="This amount will be locked in the smart contract until the bounty is completed and claimed.">
-              <span className="ml-2 inline-flex h-4 w-4 items-center justify-center border border-black text-[10px]">?</span>
-            </Tooltip>
-          </span>
-          <div className="flex flex-col">
-            <div className="relative">
-              <input
-                type="number"
-                step="0.001"
-                min="0"
-                required
-                className="input-field w-full pr-16"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="10"
-                disabled={isSubmitting || submitStep === 'x402-preview'}
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted font-medium">ALGO</span>
-            </div>
-            <span className="text-xs text-muted mt-1">Funds will be deposited to the smart contract</span>
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-text-primary">Bounty Amount (ALGO)</label>
+            <Tooltip text="This amount will be locked in the smart contract until the bounty is completed and claimed." />
           </div>
-        </label>
+          <div className="relative">
+            <Input
+              type="number"
+              step="0.001"
+              min="0"
+              required
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="10"
+              disabled={isSubmitting || submitStep === 'x402-preview'}
+              className="pr-16"
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-text-muted font-medium">ALGO</span>
+          </div>
+          <p className="text-xs text-text-muted">Funds will be deposited to the smart contract</p>
+        </div>
 
-        <label className="flex flex-col gap-2">
-          <span className="text-sm font-medium text-black">
-            Creator Wallet *
-            <Tooltip text="Used to associate the bounty on-chain later.">
-              <span className="ml-2 inline-flex h-4 w-4 items-center justify-center border border-black text-[10px]">?</span>
-            </Tooltip>
-          </span>
-          <input
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-text-primary">Creator Wallet</label>
+            <Tooltip text="Used to associate the bounty on-chain later." />
+          </div>
+          <Input
             type="text"
             required
-            className="input-field w-full bg-gray-400"
             value={creatorWallet}
             onChange={(e) => setCreatorWallet(e.target.value)}
             placeholder="0x1234...abcd"
             disabled={true}
+            className="font-mono text-xs opacity-70"
           />
-        </label>
+        </div>
 
         {/* x402 Payment Preview */}
         {submitStep === 'x402-preview' && x402Requirements && (
-          <div className="border-2 border-black bg-blue-50 p-4 space-y-3">
-            <h4 className="font-bold text-black flex items-center gap-2">
-              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-                />
-              </svg>
+          <div className="rounded-md border border-info/40 bg-info/10 p-4 space-y-3">
+            <h4 className="font-semibold text-text-primary text-sm flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-info animate-pulse" />
               x402 Payment Required
             </h4>
-            <p className="text-sm text-gray-700">
-              The server requires a USDC micropayment to register this bounty. Review the details below and confirm to sign.
+            <p className="text-sm text-text-secondary">
+              The server requires a USDC micropayment to register this bounty. Review and confirm to sign.
             </p>
             {x402Requirements.accepts.length > 0 ? (
               <div className="space-y-2">
                 {x402Requirements.accepts.map((accept, idx) => (
-                  <div key={idx} className="border border-gray-300 bg-white p-3 space-y-1 text-sm">
+                  <div key={idx} className="rounded-sm border border-border-default bg-bg-elevated p-3 space-y-1.5 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-muted">Price:</span>
-                      <span className="font-bold text-black">{accept.price}</span>
+                      <span className="text-text-muted">Price:</span>
+                      <span className="font-bold text-text-primary">{accept.price}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted">Network:</span>
-                      <span className="font-mono text-xs text-black">
+                      <span className="text-text-muted">Network:</span>
+                      <span className="font-mono text-xs text-text-secondary">
                         {accept.network.startsWith('algorand:') ? 'Algorand TestNet' : accept.network}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted">Pay To:</span>
-                      <span className="font-mono text-xs text-black" title={accept.payTo}>
+                      <span className="text-text-muted">Pay To:</span>
+                      <span className="font-mono text-xs text-text-secondary" title={accept.payTo}>
                         {accept.payTo.length > 16 ? `${accept.payTo.slice(0, 8)}...${accept.payTo.slice(-8)}` : accept.payTo}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted">Scheme:</span>
-                      <span className="text-black">{accept.scheme}</span>
+                      <span className="text-text-muted">Scheme:</span>
+                      <span className="text-text-secondary">{accept.scheme}</span>
                     </div>
                     {accept.description && (
-                      <div className="pt-1 border-t border-gray-200">
-                        <span className="text-muted">{accept.description}</span>
+                      <div className="pt-1 border-t border-border-default">
+                        <span className="text-text-muted text-xs">{accept.description}</span>
                       </div>
                     )}
                     {accept.maxAmountRequired && (
                       <div className="flex justify-between">
-                        <span className="text-muted">Max Amount:</span>
-                        <span className="font-mono text-xs text-black">{accept.maxAmountRequired}</span>
+                        <span className="text-text-muted">Max Amount:</span>
+                        <span className="font-mono text-xs text-text-secondary">{accept.maxAmountRequired}</span>
                       </div>
                     )}
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted italic">Payment requirements could not be parsed. The payment will still proceed.</p>
+              <p className="text-sm text-text-muted italic">Payment requirements could not be parsed. The payment will still proceed.</p>
             )}
 
-            {/* Raw header for developer inspection */}
             <details className="text-xs">
-              <summary className="cursor-pointer text-muted hover:text-black">View raw x402 header</summary>
-              <pre className="mt-2 p-2 bg-gray-100 border border-gray-300 rounded overflow-x-auto text-xs whitespace-pre-wrap break-all">
+              <summary className="cursor-pointer text-text-muted hover:text-text-secondary transition-colors">View raw x402 header</summary>
+              <pre className="mt-2 p-2 bg-bg-base border border-border-default rounded-sm overflow-x-auto text-xs text-text-secondary whitespace-pre-wrap break-all">
                 {JSON.stringify(x402Requirements, null, 2)}
               </pre>
             </details>
           </div>
         )}
 
-        {error && <div className="p-3 border-2 border-black text-sm bg-red-50 text-red-800">{error}</div>}
+        {error && (
+          <div className="rounded-md border border-danger/40 bg-danger/10 p-3 text-sm text-danger">
+            {error}
+          </div>
+        )}
 
         <div className="flex gap-3">
-          <button type="button" onClick={onClose} className="btn-secondary flex-1 py-3" disabled={isSubmitting}>
+          <Button type="button" variant="ghost" className="flex-1" onClick={onClose} disabled={isSubmitting}>
             Cancel
-          </button>
+          </Button>
           {submitStep === 'x402-preview' ? (
-            <button
-              type="button"
-              onClick={handleConfirmX402}
-              className="btn-primary flex-1 py-3 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isSubmitting}
-            >
+            <Button type="button" className="flex-1" onClick={handleConfirmX402} disabled={isSubmitting}>
               {isSubmitting ? 'Signing...' : 'Confirm & Pay'}
-            </button>
+            </Button>
           ) : (
-            <button
-              type="submit"
-              className="btn-primary flex-1 py-3 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isSubmitting}
-            >
+            <Button type="submit" className="flex-1" disabled={isSubmitting}>
               {isSubmitting ? 'Creating...' : 'Create Bounty'}
-            </button>
+            </Button>
           )}
         </div>
 
         {isSubmitting && (
-          <div className="border-2 border-black bg-yellow-50 p-4 space-y-3">
+          <div className="rounded-md border border-warning/40 bg-warning/10 p-4 space-y-3">
             <div className="flex items-center gap-3">
-              <div
-                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                  submitStep === 'blockchain' ? 'bg-yellow-400 animate-pulse' : 'bg-green-400'
-                }`}
-              >
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-bg-base ${submitStep === 'blockchain' ? 'bg-warning animate-pulse' : 'bg-success'}`}>
                 1
               </div>
-              <span className="text-sm font-medium">
+              <span className="text-sm font-medium text-text-primary">
                 {submitStep === 'blockchain' ? 'Signing & submitting to blockchain...' : 'Blockchain transaction submitted'}
               </span>
             </div>
             <div className="flex items-center gap-3">
-              <div
-                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                  submitStep === 'server' ? 'bg-yellow-400 animate-pulse' : submitStep === 'complete' ? 'bg-green-400' : 'bg-gray-300'
-                }`}
-              >
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-bg-base ${submitStep === 'server' ? 'bg-warning animate-pulse' : submitStep === 'complete' ? 'bg-success' : 'bg-bg-hover'}`}>
                 2
               </div>
-              <span className={`text-sm ${submitStep === 'blockchain' ? 'text-gray-400' : 'font-medium'}`}>
+              <span className={`text-sm ${submitStep === 'blockchain' ? 'text-text-muted' : 'font-medium text-text-primary'}`}>
                 {submitStep === 'server' ? 'Signing x402 payment & registering bounty...' : 'x402 payment & server registration'}
               </span>
             </div>

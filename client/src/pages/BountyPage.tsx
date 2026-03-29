@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import AnimatedNumber from '../components/AnimatedNumber'
-import { FiExternalLink, FiArrowLeft, FiCheckCircle, FiZap } from 'react-icons/fi'
+import { FiExternalLink, FiArrowLeft, FiCheckCircle, FiZap, FiAlertTriangle } from 'react-icons/fi'
 import { Link, useParams } from 'react-router-dom'
 import LoadingPair from '../components/LoadingPair'
 import { Badge } from '../components/ui/badge'
@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { useProjects } from '../contexts/ProjectContext'
 import { useUnifiedWallet } from '../hooks/useUnifiedWallet'
 import { Bounty, Project } from '../interfaces/entities'
-import { listBounties, getBountyById, claimBounty } from '../services/api'
+import { listBounties, getBountyById, claimBounty, refundBounty } from '../services/api'
 import { formatAlgoAmount } from '../utils/amount'
 import WalletLinkModal from '../components/WalletLinkModal'
 import { useSnackbar } from 'notistack'
@@ -32,6 +32,7 @@ export default function BountyPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isClaiming, setIsClaiming] = useState(false)
+  const [isRefunding, setIsRefunding] = useState(false)
   const [showWalletLinkModal, setShowWalletLinkModal] = useState(false)
   const { enqueueSnackbar } = useSnackbar()
   const { jwtToken, handleAuthError, login, isAuthenticated } = useAuth()
@@ -121,6 +122,32 @@ export default function BountyPage() {
       handleAuthError(error)
     } finally {
       setIsClaiming(false)
+    }
+  }
+
+  const handleRefund = async () => {
+    if (!bounty) return
+
+    // Ensure user is authenticated
+    if (!isAuthenticated) {
+      await login()
+    }
+
+    if (!jwtToken) {
+      enqueueSnackbar('Authentication required. Please login first.', { variant: 'error' })
+      return
+    }
+
+    setIsRefunding(true)
+    try {
+      const result = await refundBounty(bounty.id, jwtToken)
+      enqueueSnackbar(`Bounty refunded! Transaction: ${result.txId}`, { variant: 'success' })
+      const updatedBounty = await getBountyById(bounty.id)
+      setBounties(prev => prev.map(b => b.id === bounty.id ? updatedBounty : b))
+    } catch (error) {
+      handleAuthError(error)
+    } finally {
+      setIsRefunding(false)
     }
   }
 
@@ -245,6 +272,7 @@ export default function BountyPage() {
 
             {(() => {
               const isWinner = activeAddress === bounty.winner?.wallet
+              const isCreator = activeAddress === bounty.creatorWallet
               const hasWinnerWallet = !!bounty.winner?.wallet
 
               if (bounty.status === 'READY_FOR_CLAIM' && isConnected && isWinner && hasWinnerWallet) {
@@ -284,6 +312,18 @@ export default function BountyPage() {
                   <div className="flex-1 max-w-xs text-sm text-success rounded-md border border-success/30 bg-success/10 p-3 text-center">
                     ✓ This bounty has been claimed
                   </div>
+                )
+              } else if (bounty.status === 'REFUNDABLE' && isCreator && isConnected) {
+                return (
+                  <Button
+                    onClick={handleRefund}
+                    disabled={isRefunding}
+                    variant="destructive"
+                    className="flex-1 max-w-xs py-5 text-base"
+                  >
+                    <FiAlertTriangle className="w-5 h-5" />
+                    Refund Bounty — {formatAlgoAmount(bounty.amount)}
+                  </Button>
                 )
               }
               return null

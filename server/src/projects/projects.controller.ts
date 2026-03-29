@@ -25,7 +25,7 @@ import {
 } from './dto/project-response.dto';
 
 @ApiTags('Projects')
-@Controller('projects')
+@Controller('api/projects')
 export class ProjectsController {
   constructor(private readonly projectsService: ProjectsService) {}
 

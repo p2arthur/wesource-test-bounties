@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
 import { FiPlusCircle, FiCheckCircle, FiRotateCcw, FiXCircle } from 'react-icons/fi';
 import { Card, CardContent } from './ui/card';
-import { Skeleton } from './ui/skeleton';
 import { Transaction, TransactionType } from '../services/api';
 
 interface ActivityTimelineProps {
@@ -70,10 +69,10 @@ function ActivityTimelineSkeleton() {
         .fill(0)
         .map((_, i) => (
           <div key={i} className="flex gap-4 pb-4 border-b border-border-default last:border-b-0">
-            <Skeleton className="h-5 w-5 rounded-full flex-shrink-0" />
+            <div className="h-5 w-5 rounded-full flex-shrink-0 bg-bg-elevated animate-pulse" />
             <div className="flex-1 space-y-2">
-              <Skeleton className="h-4 w-48" />
-              <Skeleton className="h-3 w-32" />
+              <div className="h-4 w-48 bg-bg-elevated rounded animate-pulse" />
+              <div className="h-3 w-32 bg-bg-elevated rounded animate-pulse" />
             </div>
           </div>
         ))}

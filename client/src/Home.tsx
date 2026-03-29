@@ -199,8 +199,8 @@ const Home: React.FC = () => {
           {/* Main Content */}
           <div className="flex-1 space-y-6">
             {/* Tabs + Filter Bar */}
-            <div className={`rounded-lg border border-border-default bg-bg-surface px-4 ${activeTab === 'bounties' ? 'space-y-4 p-4' : 'h-16 flex items-center justify-between'}`}>
-              <div className="flex gap-1">
+            <div className="rounded-lg border border-border-default bg-bg-surface p-4 flex flex-col sm:flex-row sm:items-center gap-4">
+              <div className="flex gap-1 flex-shrink-0">
                 {(['projects', 'bounties'] as Tab[]).map((tab) => (
                   <button
                     key={tab}
@@ -217,7 +217,7 @@ const Home: React.FC = () => {
               </div>
 
               {activeTab === 'projects' ? (
-                <div className="flex gap-2 items-center flex-wrap">
+                <div className="flex gap-2 items-center flex-wrap flex-1">
                   <span className="text-sm text-text-muted">Filter:</span>
                   <button
                     className={`px-3 py-1 text-xs rounded-full border transition-colors ${
@@ -248,7 +248,7 @@ const Home: React.FC = () => {
                   </Button>
                 </div>
               ) : (
-                <div className="flex gap-3 items-center flex-wrap">
+                <div className="flex gap-3 items-center flex-wrap flex-1">
                   <div className="flex-1 min-w-64">
                     <div className="relative">
                       <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
@@ -294,7 +294,7 @@ const Home: React.FC = () => {
               ) : activeTab === 'projects' ? (
                 filteredProjects.length > 0 ? (
                   <div className="space-y-5">
-                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 items-stretch">
                       {filteredProjects.map((project) => (
                         <ProjectCard key={project.id} project={project} />
                       ))}
@@ -347,7 +347,7 @@ const Home: React.FC = () => {
                     </div>
                   ) : filteredBounties.length > 0 ? (
                     <div className="space-y-5">
-                      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 items-stretch">
                         {filteredBounties.map((bounty) => (
                           <BountyCard key={bounty.id} bounty={bounty} />
                         ))}

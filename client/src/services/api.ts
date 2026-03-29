@@ -159,7 +159,7 @@ export async function preflightBountyCreation(
 
 // API functions
 export async function fetchProjects(): Promise<ProjectsResponse> {
-  const response = await fetch(`${API_BASE_URL}/projects`)
+  const response = await fetch(`${API_BASE_URL}/api/projects`)
   if (!response.ok) {
     throw new Error('Failed to fetch projects')
   }
@@ -167,7 +167,7 @@ export async function fetchProjects(): Promise<ProjectsResponse> {
 }
 
 export async function fetchProjectById(id: number): Promise<Project> {
-  const response = await fetch(`${API_BASE_URL}/projects/${id}`)
+  const response = await fetch(`${API_BASE_URL}/api/projects/${id}`)
   console.log('fetchProjectById response:', response)
   if (!response.ok) {
     if (response.status === 404) {
@@ -179,7 +179,7 @@ export async function fetchProjectById(id: number): Promise<Project> {
 }
 
 export async function createProject(payload: CreateProjectPayload): Promise<Project> {
-  const response = await fetch(`${API_BASE_URL}/projects`, {
+  const response = await fetch(`${API_BASE_URL}/api/projects`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -196,7 +196,7 @@ export async function createProject(payload: CreateProjectPayload): Promise<Proj
 }
 
 export async function deleteProject(id: number): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/projects/${id}`, {
+  const response = await fetch(`${API_BASE_URL}/api/projects/${id}`, {
     method: 'DELETE',
   })
 
@@ -242,7 +242,9 @@ export async function listBounties(): Promise<ListBountiesResponse> {
   if (!response.ok) {
     throw new Error('Failed to fetch bounties')
   }
-  return response.json()
+  const json = await response.json()
+  // API may return paginated { data: [] } or a raw array
+  return Array.isArray(json) ? json : (json.data ?? [])
 }
 
 export async function checkBountyExists(repoOwner: string, repoName: string, issueNumber: number): Promise<Bounty | undefined> {

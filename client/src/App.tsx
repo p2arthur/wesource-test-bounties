@@ -1,7 +1,6 @@
 import { SupportedWallet, WalletId, WalletManager, WalletProvider } from '@txnlab/use-wallet-react'
 import { SnackbarProvider } from 'notistack'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
-import Footer from './components/Footer'
 import Layout from './components/Layout'
 import { ProjectProvider } from './contexts/ProjectContext'
 import { VoteProvider } from './contexts/VoteContext'
@@ -64,7 +63,6 @@ export default function App() {
                       <Route path="/profile/:walletAddress" element={<ProfilePage />} />
                     </Routes>
                   </Layout>
-                  <Footer />
                 </div>
               </BrowserRouter>
             </VoteProvider>

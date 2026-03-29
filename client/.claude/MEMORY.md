@@ -12,6 +12,7 @@
 ✅ **Phase 5: Refund Flow UI** — COMPLETE
 ✅ **Phase 6: User Profiles** — COMPLETE
 🔄 **Phase 7: Search, Pagination, Notifications** — PARTIAL (7.1 done, 7.2/7.3 remain)
+✅ **Phase 8: Transaction History UI** — COMPLETE
 
 ---
 
@@ -98,6 +99,35 @@
 
 ---
 
+## Phase 8: Transaction History UI ✅
+
+### 8.1: API Integration
+- Added `getUserTransactions(walletAddress, page, limit)` to `api.ts`
+- Calls `GET /api/users/:walletAddress/transactions`
+- Returns paginated array of Transaction objects
+- Includes BountyReference with issueNumber, issueUrl, repository
+
+### 8.2: ActivityTimeline Component
+- Vertical timeline of bounty transactions in ProfilePage
+- Icons by type:
+  - BOUNTY_CREATED → FiPlusCircle (orange)
+  - BOUNTY_CLAIMED → FiCheckCircle (green)
+  - BOUNTY_REFUNDED → FiRotateCcw (red)
+  - BOUNTY_REVOKED/CANCELLED → FiXCircle (red/gray)
+- Each row shows: icon, action text (e.g., "Created bounty for org/repo#42"), amount in ALGO, relative timestamp
+- Clickable links to bounty pages
+- Loading skeleton with animation
+- Empty state: "No activity yet"
+
+### 8.3: ProfilePage Integration
+- Import ActivityTimeline and getUserTransactions
+- Fetch transactions on profile mount (pagination: page 1, limit 20)
+- Render "Recent Activity" section below stats cards
+- Silent failure on transaction fetch (doesn't break profile display)
+- Loading state with skeleton animation
+
+---
+
 ## API Updates
 
 ### New Endpoints Integrated
@@ -144,6 +174,9 @@
 4. `feat(bounty): Phase 5 — Refund Flow UI`
 5. `feat(profile): Phase 6 — User Profiles with Real Data`
 6. `feat(search): Phase 7.1 — Search Bar + Status Filter for Bounties`
+7. `feat(transaction): Phase 8.1 — Add getUserTransactions API function`
+8. `feat(activity): Phase 8.2 — Create ActivityTimeline component for transaction history`
+9. `feat(profile): Phase 8.3 — Add ActivityTimeline to ProfilePage`
 
 ---
 
@@ -152,6 +185,20 @@
 - **Phase 7.2**: Pagination with Previous/Next controls (requires API support)
 - **Phase 7.3**: Notification bell with unread count (requires new backend endpoint)
 - Stretch: Real-time notifications via WebSocket or polling
+
+---
+
+## MVP Completion Status
+
+✅ **Functional MVP is complete.** All core features implemented:
+- Authentication with wallet signatures and JWT
+- Claim flow (READY_FOR_CLAIM + winner check)
+- Refund flow (REFUNDABLE + creator check)
+- User profiles with stats
+- Search and status filters
+- Transaction history timeline
+
+**Remaining work** is stretch features (pagination, notifications) which are not MVP-blocking.
 
 ---
 

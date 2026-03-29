@@ -13,8 +13,8 @@ const config: Config.InitialOptions = {
       },
     ],
   },
-  coveragePathIgnorePatterns: ['tests'],
-  testPathIgnorePatterns: ['/tests/'],
+  coveragePathIgnorePatterns: ['tests', 'e2e'],
+  testPathIgnorePatterns: ['/tests/', '/e2e/'],
   }
 
 export default config

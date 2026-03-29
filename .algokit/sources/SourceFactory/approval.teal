@@ -1,0 +1,653 @@
+#pragma version 11
+#pragma typetrack false
+
+
+main:
+    intcblock 0 1 8 32
+    bytecblock "b__" 0x00 "TOTAL_BOUNTIES" "MANAGER_ADDRESS" 0x80
+    txn ApplicationID
+    bnz main_after_if_else@2
+
+
+    bytec_2
+    intc_0
+    app_global_put
+
+main_after_if_else@2:
+
+
+    txn NumAppArgs
+    bz main___algots__.defaultCreate@14
+    txn OnCompletion
+    !
+    assert
+    txn ApplicationID
+    assert
+    pushbytess 0xbec76d87 0xfa7e21c4 0x4001fe2d 0xe77d5e73 0xaad98e02
+    txna ApplicationArgs 0
+    match bootstrap create_bounty withdraw_bounty refund_bounty revoke_bounty
+    err
+
+main___algots__.defaultCreate@14:
+
+
+    txn OnCompletion
+    !
+    txn ApplicationID
+    !
+    &&
+    assert
+    intc_1
+    return
+
+
+
+bootstrap:
+
+
+    intc_0
+
+
+    bytec_3
+
+
+    app_global_get_ex
+    bury 1
+    !
+    assert
+
+
+    bytec_3
+
+
+    txn Sender
+    app_global_put
+
+
+    intc_1
+    return
+
+
+
+create_bounty:
+
+
+    txna ApplicationArgs 1
+    dup
+    len
+    intc_2
+    ==
+    assert
+    txna ApplicationArgs 2
+    dup
+    len
+    intc_2
+    ==
+    assert
+    dup
+    btoi
+    txna ApplicationArgs 3
+    dup
+    len
+    intc_2
+    ==
+    assert
+
+
+    callsub assert_manager
+
+
+    dig 1
+    assert
+
+
+    txn GroupIndex
+    assert
+
+
+    txn GroupIndex
+    intc_1
+    -
+    dup
+    gtxns TypeEnum
+    intc_1
+    ==
+    assert
+
+
+    dup
+    gtxns Receiver
+    global CurrentApplicationAddress
+    ==
+    assert
+
+
+    gtxns Amount
+    uncover 2
+    >=
+    assert
+
+
+    bytec_0
+    uncover 3
+    concat
+
+
+    dup
+    box_len
+    bury 1
+    !
+    assert
+
+
+    global ZeroAddress
+
+
+
+
+
+
+
+    uncover 3
+
+
+    bytec_1
+
+
+
+
+
+
+
+    concat
+    swap
+    concat
+    uncover 2
+    concat
+    box_put
+
+
+    intc_0
+
+
+    bytec_2
+
+
+    app_global_get_ex
+    assert
+    intc_1
+    +
+
+
+    bytec_2
+
+
+    swap
+    app_global_put
+
+
+    intc_1
+    return
+
+
+
+withdraw_bounty:
+
+
+    txna ApplicationArgs 1
+    dup
+    len
+    intc_2
+    ==
+    assert
+    txna ApplicationArgs 2
+    dup
+    len
+    intc_3
+    ==
+    assert
+
+
+    callsub assert_manager
+
+
+    dup
+    global ZeroAddress
+    !=
+    assert
+
+
+    bytec_0
+    uncover 2
+    concat
+
+
+    dup
+    box_len
+    bury 1
+    assert
+
+
+    dup
+    box_get
+    pop
+    dup
+    pushint 64
+    getbit
+    bytec_1
+    intc_0
+    uncover 2
+    setbit
+    intc_0
+    getbit
+    !
+    assert
+
+
+    dup
+    intc_0
+    extract_uint64
+
+
+    dup
+    assert
+
+
+    global CurrentApplicationAddress
+    balance
+    dig 1
+    >=
+    assert
+
+
+    dig 1
+    extract 0 8
+
+
+    uncover 2
+    extract 41 8
+
+
+
+
+
+
+
+    swap
+
+
+    bytec 4
+
+
+
+
+
+
+
+    concat
+    dig 4
+    concat
+    swap
+    concat
+    uncover 2
+    swap
+    box_put
+
+
+
+
+
+
+
+
+    itxn_begin
+    itxn_field Amount
+    itxn_field Receiver
+
+
+
+
+
+
+
+    intc_1
+    itxn_field TypeEnum
+
+
+    intc_0
+    itxn_field Fee
+
+
+
+
+
+
+
+
+    itxn_submit
+
+
+    intc_1
+    return
+
+
+
+refund_bounty:
+
+
+    txna ApplicationArgs 1
+    dup
+    len
+    intc_2
+    ==
+    assert
+    txna ApplicationArgs 2
+    dup
+    len
+    intc_3
+    ==
+    assert
+
+
+    callsub assert_manager
+
+
+    dup
+    global ZeroAddress
+    !=
+    assert
+
+
+    bytec_0
+    uncover 2
+    concat
+
+
+    dup
+    box_len
+    bury 1
+    assert
+
+
+    dup
+    box_get
+    pop
+    dup
+    pushint 64
+    getbit
+    bytec_1
+    intc_0
+    uncover 2
+    setbit
+    intc_0
+    getbit
+    !
+    assert
+
+
+    dup
+    intc_0
+    extract_uint64
+
+
+    dup
+    assert
+
+
+    global CurrentApplicationAddress
+    balance
+    dig 1
+    >=
+    assert
+
+
+    dig 1
+    extract 0 8
+
+
+    global ZeroAddress
+
+
+    uncover 3
+    extract 41 8
+
+
+
+
+
+
+
+    uncover 2
+
+
+    bytec 4
+
+
+
+
+
+
+
+    concat
+    uncover 2
+    concat
+    swap
+    concat
+    uncover 2
+    swap
+    box_put
+
+
+
+
+
+
+
+
+    itxn_begin
+    itxn_field Amount
+    itxn_field Receiver
+
+
+
+
+
+
+
+    intc_1
+    itxn_field TypeEnum
+
+
+    intc_0
+    itxn_field Fee
+
+
+
+
+
+
+
+
+    itxn_submit
+
+
+    intc_1
+    return
+
+
+
+revoke_bounty:
+
+
+    txna ApplicationArgs 1
+    dup
+    len
+    intc_2
+    ==
+    assert
+    txna ApplicationArgs 2
+    dup
+    len
+    intc_3
+    ==
+    assert
+
+
+    callsub assert_manager
+
+
+    dup
+    global ZeroAddress
+    !=
+    assert
+
+
+    bytec_0
+    uncover 2
+    concat
+
+
+    dup
+    box_len
+    bury 1
+    assert
+
+
+    dup
+    box_get
+    pop
+    dup
+    pushint 64
+    getbit
+    bytec_1
+    intc_0
+    uncover 2
+    setbit
+    intc_0
+    getbit
+    !
+    assert
+
+
+    dup
+    pushint 41
+    extract_uint64
+
+
+    dup
+    assert
+
+
+    global LatestTimestamp
+    <=
+    assert
+
+
+    dup
+    intc_0
+    extract_uint64
+
+
+    dup
+    assert
+
+
+    global CurrentApplicationAddress
+    balance
+    dig 1
+    >=
+    assert
+
+
+    dig 1
+    extract 0 8
+
+
+    global ZeroAddress
+
+
+    uncover 3
+    extract 41 8
+
+
+
+
+
+
+
+    uncover 2
+
+
+    bytec 4
+
+
+
+
+
+
+
+    concat
+    uncover 2
+    concat
+    swap
+    concat
+    uncover 2
+    swap
+    box_put
+
+
+
+
+
+
+
+
+    itxn_begin
+    itxn_field Amount
+    itxn_field Receiver
+
+
+
+
+
+
+
+    intc_1
+    itxn_field TypeEnum
+
+
+    intc_0
+    itxn_field Fee
+
+
+
+
+
+
+
+
+    itxn_submit
+
+
+    intc_1
+    return
+
+
+
+assert_manager:
+
+
+    intc_0
+
+
+    bytec_3
+
+
+    app_global_get_ex
+    assert
+
+
+    txn Sender
+    ==
+    assert
+    retsub

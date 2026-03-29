@@ -14,16 +14,16 @@ export async function deploy() {
 
   const { appClient, result } = await factory.deploy({ onUpdate: 'append', onSchemaBreak: 'append' })
 
-  // If app was just created fund the app account
+  // If app was just created, fund and bootstrap
   if (['create', 'replace'].includes(result.operationPerformed)) {
     await algorand.send.payment({
       amount: (1).algo(),
       sender: deployer.addr,
       receiver: appClient.appAddress,
     })
+    await appClient.send.bootstrap()
+    console.log(`Called bootstrap on ${appClient.appClient.appName} (${appClient.appClient.appId})`)
+  } else {
+    console.log(`App already exists: ${appClient.appClient.appName} (${appClient.appClient.appId})`)
   }
-
-  const method = 'bootstrap'
-  await appClient.send.bootstrap()
-  console.log(`Called ${method} on ${appClient.appClient.appName} (${appClient.appClient.appId})`)
 }

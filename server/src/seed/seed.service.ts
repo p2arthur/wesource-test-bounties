@@ -184,7 +184,7 @@ export class SeedService {
             issueNumber: bounty.issueNumber,
             issueUrl,
             bountyKey,
-            amount: onChainBounty ? Number(onChainBounty.totalValue) / 1_000_000 : 0, // Convert microAlgos to Algos
+            amount: onChainBounty ? Number(onChainBounty.totalValue) : 0, // microAlgos, matches DB column type
             status: onChainBounty?.isPaid ? 'CLAIMED' : 'OPEN',
             creatorWallet: bounty.creatorWallet,
             repositoryId: repository.id,
@@ -255,8 +255,8 @@ export class SeedService {
         }
 
         // Update amount if different
-        const onChainAmount = Number(onChainBounty.totalValue) / 1_000_000; // microAlgos to Algos
-        const needsAmountUpdate = Math.abs(dbBounty.amount - onChainAmount) > 0.000001;
+        const onChainAmount = Number(onChainBounty.totalValue); // microAlgos, matches DB column type
+        const needsAmountUpdate = dbBounty.amount !== onChainAmount;
 
         // Determine new status based on on-chain state
         let newStatus: BountyStatus = dbBounty.status;
@@ -268,7 +268,7 @@ export class SeedService {
           await this.prisma.bounty.update({
             where: { id: dbBounty.id },
             data: {
-              amount: onChainAmount,
+              amount: onChainAmount, // microAlgos
               status: newStatus,
               claimedAt: newStatus === 'CLAIMED' && !dbBounty.claimedAt ? new Date() : dbBounty.claimedAt,
             },

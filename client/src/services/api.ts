@@ -254,6 +254,15 @@ export interface WonBounty extends Bounty {
   claimedAt?: string | null
 }
 
+export interface UserProfile {
+  walletAddress: string
+  githubUsername?: string | null
+  bountyCount: number
+  winCount: number
+  createdAt: string
+  updatedAt: string
+}
+
 export async function listWonBounties(githubUsername: string): Promise<WonBounty[]> {
   if (!githubUsername) {
     return []
@@ -263,6 +272,22 @@ export async function listWonBounties(githubUsername: string): Promise<WonBounty
     throw new Error('Failed to fetch won bounties')
   }
   return response.json()
+}
+
+/**
+ * Fetch user profile data by wallet address
+ */
+export async function getUserProfile(walletAddress: string): Promise<UserProfile> {
+  const response = await fetch(`${API_BASE_URL}/api/users/${encodeURIComponent(walletAddress)}`);
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error('User not found');
+    }
+    throw new Error('Failed to fetch user profile');
+  }
+
+  return response.json();
 }
 
 /**
@@ -287,15 +312,20 @@ export async function getBountyById(id: number, headers?: HeadersInit): Promise<
 }
 
 /**
- * Claim a bounty (requires authenticated wallet)
+ * Claim a bounty (requires authenticated JWT)
  */
-export async function claimBounty(bountyId: number, headers?: HeadersInit): Promise<{ txId: string }> {
+export async function claimBounty(bountyId: number, jwtToken?: string): Promise<{ txId: string }> {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+
+  if (jwtToken) {
+    headers['Authorization'] = `Bearer ${jwtToken}`;
+  }
+
   const response = await fetch(`${API_BASE_URL}/api/bounties/claim`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...headers,
-    },
+    headers,
     body: JSON.stringify({ bountyId }),
   });
 
@@ -308,21 +338,52 @@ export async function claimBounty(bountyId: number, headers?: HeadersInit): Prom
 }
 
 /**
- * Link wallet to GitHub account for bounty claiming
+ * Link wallet to GitHub account for bounty claiming (requires authenticated JWT)
  */
-export async function linkWallet(githubUsername: string, githubId: number, headers?: HeadersInit): Promise<{ message: string }> {
+export async function linkWallet(githubUsername: string, githubId: number, jwtToken?: string): Promise<{ message: string }> {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+
+  if (jwtToken) {
+    headers['Authorization'] = `Bearer ${jwtToken}`;
+  }
+
   const response = await fetch(`${API_BASE_URL}/api/bounties/link-wallet`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...headers,
-    },
+    headers,
     body: JSON.stringify({ githubUsername, githubId }),
   });
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Failed to link wallet' }));
     throw new Error(error.message || `Failed to link wallet (status ${response.status})`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Refund a bounty (requires authenticated JWT, creator only)
+ */
+export async function refundBounty(bountyId: number, jwtToken?: string): Promise<{ message: string; txId: string }> {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+
+  if (jwtToken) {
+    headers['Authorization'] = `Bearer ${jwtToken}`;
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/bounties/${bountyId}/refund`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({}),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Failed to refund bounty' }));
+    throw new Error(error.message || `Failed to refund bounty (status ${response.status})`);
   }
 
   return response.json();

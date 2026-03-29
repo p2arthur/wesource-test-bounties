@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Bounty } from '../interfaces/entities'
+import { formatAlgoAmount } from '../utils/amount'
 
 interface Props {
   bounty: Bounty
@@ -46,7 +47,7 @@ export default function BountyCard({ bounty, disableLink }: Props) {
             </svg>
           </div>
           <span className="text-xl font-bold text-black">
-            {bounty.amount} <span className="text-sm font-medium text-muted">ALGO</span>
+            {formatAlgoAmount(bounty.amount)}
           </span>
         </div>
         {bounty.issueUrl && (
